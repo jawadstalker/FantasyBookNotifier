@@ -1,6 +1,6 @@
 # FantasyBookNotifier
 
-![FantasyBookNotifier Banner](logo.png?text=FantasyBookNotifier)
+<img src="logo.png" alt="FantasyBookNotifier Banner" width="200"/>
 
 ## 📚 Overview
 
