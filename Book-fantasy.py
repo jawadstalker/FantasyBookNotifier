@@ -25,7 +25,6 @@ from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 SENDER_EMAIL = "your email"
 APP_PASSWORD = "your app password"
 RECEIVER_EMAIL = "your reciver email"
-
 # ======================
 # Image Folder
 # ======================
@@ -375,23 +374,24 @@ async def scrape_fantasylit(context):
 # ======================
 # Download Images (uses Playwright context.request)
 # ======================
+
 async def download_images_with_playwright(context, books):
     for book in books:
         img_url = book.get("image")
         if not img_url:
+            print(f"[Download] No image URL for '{book['title']}' — skipping")
+            book["local_image"] = None
             continue
-        filename = safe_filename(f"{book['publisher']}_{book['title'][:40]}")
-        # preserve extension if present
-        ext = Path(img_url).suffix
-        if ext and len(ext) <= 6:
-            filename = f"{filename}{ext}"
-        else:
-            filename = f"{filename}.jpg"
-        path = IMAGE_DIR / filename
+
+        # filename only book title
+        filename = safe_filename(book['title']) + ".jpg"
+        path = IMAGE_DIR / filename  # بدون پسوند
+
         if path.exists():
             print(f"[Download] exists {path}")
             book["local_image"] = str(path)
             continue
+
         try:
             print(f"[Download] fetching {img_url}")
             response = await context.request.get(img_url, timeout=30000)
@@ -454,8 +454,8 @@ h1 {
 }
 .book img { 
     width:120px; 
-    max-width:120px; 
-    height:auto; 
+    max-width:130px; 
+    height:186px; 
     margin-right:15px; 
     border-radius:5px; 
 }
