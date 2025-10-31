@@ -20,7 +20,7 @@ from email.mime.image import MIMEImage
 from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 
 # ======================
-# Email Settings
+# Email Settings (kept as requested)
 # ======================
 SENDER_EMAIL = "your email"
 APP_PASSWORD = "your app password"
@@ -45,8 +45,10 @@ FANTASYLIT_URL = "https://fantasyliterature.com/"
 # Utilities
 # ======================
 def safe_filename(name: str) -> str:
+    # remove problematic characters, replace whitespace with underscore
     name = re.sub(r'[\\/*?:"<>|\n\r]', "", name)
     name = re.sub(r'\s+', "_", name.strip())
+    # limit length so we don't hit OS limits
     return name[:180]
 
 def parse_srcset(srcset_text: str):
@@ -100,6 +102,38 @@ def limit_books_per_publisher(all_books, per_publisher=3):
             result.append(b)
             grouped[pub] += 1
     return result
+
+def choose_extension_from_content_type(content_type: str) -> str:
+    if not content_type:
+        return ".jpg"
+    content_type = content_type.split(";")[0].strip().lower()
+    guess = mimetypes.guess_extension(content_type)
+    if guess:
+        return guess
+    # common fallbacks
+    if content_type == "image/jpeg":
+        return ".jpg"
+    if content_type == "image/png":
+        return ".png"
+    if content_type == "image/webp":
+        return ".webp"
+    return ".jpg"
+
+def unique_path(path: Path) -> Path:
+    """
+    If path exists, append a counter before the extension: name_1.ext, name_2.ext, ...
+    """
+    if not path.exists():
+        return path
+    base = path.stem
+    ext = path.suffix
+    parent = path.parent
+    i = 1
+    while True:
+        candidate = parent / f"{base}_{i}{ext}"
+        if not candidate.exists():
+            return candidate
+        i += 1
 
 # ======================
 # Scrapers (existing ones kept similar)
@@ -291,7 +325,7 @@ async def scrape_fantasylit(context):
         except PWTimeout:
             print("[FantasyLit] no article.post within 30s — continuing to try to find content")
 
-        # Some pages may lazy-load later; do a gentle scroll to encourage loading
+        # Gentle scroll to encourage lazy-loading
         for _ in range(3):
             await page.evaluate("window.scrollBy(0, window.innerHeight);")
             await asyncio.sleep(1.0)
@@ -372,44 +406,54 @@ async def scrape_fantasylit(context):
     return books
 
 # ======================
-# Download Images (uses Playwright context.request)
+# Download Images (updated to produce email-friendly filenames)
 # ======================
-
 async def download_images_with_playwright(context, books):
     for book in books:
         img_url = book.get("image")
+        book["local_image"] = None
+        book["cid"] = None
+
         if not img_url:
-            print(f"[Download] No image URL for '{book['title']}' — skipping")
-            book["local_image"] = None
+            print(f"[Download] No image URL for '{book.get('title','<no title>')}' — skipping")
             continue
 
-        # filename only book title
-        filename = safe_filename(book['title']) + ".jpg"
-        path = IMAGE_DIR / filename  # بدون پسوند
-
-        if path.exists():
-            print(f"[Download] exists {path}")
-            book["local_image"] = str(path)
-            continue
-
+        # We'll fetch the image to determine content-type and save with correct extension
         try:
             print(f"[Download] fetching {img_url}")
             response = await context.request.get(img_url, timeout=30000)
-            if response.status == 200:
-                body = await response.body()
-                with open(path, "wb") as f:
-                    f.write(body)
-                book["local_image"] = str(path)
-                print(f"[Download] saved {path}")
-            else:
-                print(f"[Download] failed {img_url} status={response.status}")
-                book["local_image"] = None
         except Exception as e:
             print(f"[Download] exception for {img_url}: {e}")
+            continue
+
+        if response.status != 200:
+            print(f"[Download] failed {img_url} status={response.status}")
+            continue
+
+        # choose extension from content-type header
+        ct = response.headers.get("content-type", "") if hasattr(response, "headers") else ""
+        ext = choose_extension_from_content_type(ct)
+        # prepare filename
+        filename_base = safe_filename(f"{book.get('publisher','Unknown')}_{book.get('title','no_title')[:60]}")
+        filename = filename_base + ext
+        path = IMAGE_DIR / filename
+        path = unique_path(path)  # ensure uniqueness if collision
+
+        try:
+            body = await response.body()
+            with open(path, "wb") as f:
+                f.write(body)
+            # store local path and cid (use filename as cid)
+            book["local_image"] = str(path)
+            book["cid"] = path.name
+            print(f"[Download] saved {path} (content-type: {ct})")
+        except Exception as e:
+            print(f"[Download] write exception for {img_url}: {e}")
             book["local_image"] = None
+            book["cid"] = None
 
 # ======================
-# Send Email
+# Send Email (use saved local_image and cid)
 # ======================
 def send_email(all_books):
     msg = MIMEMultipart("related")
@@ -421,112 +465,88 @@ def send_email(all_books):
     msg.attach(alt)
     alt.attach(MIMEText("Latest books available.", "plain"))
 
+    # start HTML body
     html_parts = [
         """
        <html>
 <head>
 <style>
-body { 
-    font-family: Arial, sans-serif; 
-    background:#f4f4f4; 
-    color:#333; 
-    margin:0; 
-    padding:0; 
-}
-.container { 
-    width:90%; 
-    max-width:700px; 
-    margin:20px auto; 
-    background:#fff; 
-    border-radius:10px; 
-    box-shadow:0 4px 8px rgba(0,0,0,0.1); 
-    padding:20px; 
-}
-h1 { 
-    text-align:center; 
-    color:#2c3e50; 
-}
-.book { 
-    border-bottom:1px solid #ddd; 
-    padding:15px 0; 
-    display:flex; 
-    align-items:flex-start; 
-}
-.book img { 
-    width:120px; 
-    max-width:130px; 
-    height:186px; 
-    margin-right:15px; 
-    border-radius:5px; 
-}
-.book h2 { 
-    margin:0; 
-    color:#2980b9; 
-    font-size:16px; 
-}
-.book p { 
-    margin:5px 0; 
-    font-size:14px; 
-}
-.book a { 
-    text-decoration:none; 
-    color:#e74c3c; 
-    font-weight:bold; 
-}
+body { font-family: Arial, sans-serif; background:#f4f4f4; color:#333; margin:0; padding:0;}
+.container { width:90%; max-width:700px; margin:20px auto; background:#fff; border-radius:10px; box-shadow:0 4px 8px rgba(0,0,0,0.1); padding:20px;}
+h1 { text-align:center; color:#2c3e50; }
+.book { border-bottom:1px solid #ddd; padding:15px 0; display:flex; align-items:flex-start;}
+.book img { width:120px; max-width:130px; height:auto; margin-right:15px; border-radius:5px;}
+.book h2 { margin:0; color:#2980b9; font-size:16px;}
+.book p { margin:5px 0; font-size:14px;}
+.book a { text-decoration:none; color:#e74c3c; font-weight:bold;}
 </style>
 </head>
 <body>
 <div class="container">
 <h1>Latest Books</h1>
-
-<!-- Example of a book -->
-<div class="book">
-    <img src="cid:example.jpg" alt="Book Title" style="width:120px; max-width:100%; height:auto; border-radius:5px;">
-    <div>
-        <h2>Book Title (Publisher Name)</h2>
-        <p>Price: $19.99</p>
-        <p><a href="https://example.com/book-link">View Book</a></p>
-    </div>
-</div>
-
-<!-- Repeat .book blocks for each book -->
-
-</div>
-</body>
-</html>
-
-        """
+"""
     ]
 
+    # Build HTML containing CID references and attach images
     for book in all_books:
-        filename = safe_filename(f"{book['publisher']}_{book['title'][:30]}.jpg")
-        img_path = IMAGE_DIR / filename
+        title = book.get("title", "No Title")
+        publisher = book.get("publisher", "Unknown Publisher")
+        price = book.get("price", "N/A")
+        link = book.get("link", "#")
+        author = book.get("author", "N/A")
+        cid = book.get("cid")  # this should be filename like "Publisher_Title.jpg"
+        img_html = ""
+        if cid:
+            img_html = f'<img src="cid:{cid}" alt="{title}" />'
+        else:
+            # placeholder if no image
+            img_html = '<div style="width:120px; height:180px; background:#eee; display:inline-block; margin-right:15px; border-radius:5px;"></div>'
+
         html_parts.append(f"""
         <div class="book">
-            <img src="cid:{filename}" alt="{book['title']}">
+            {img_html}
             <div>
-                <h2>{book['title']} ({book['publisher']})</h2>
-                <p>Author: {book.get('author','N/A')}</p>
-                <p>Price: {book.get('price','N/A')}</p>
-                <p><a href="{book['link']}">View Book / Article</a></p>
+                <h2>{title} ({publisher})</h2>
+                <p>Author: {author}</p>
+                <p>Price: {price}</p>
+                <p><a href="{link}">View Book / Article</a></p>
             </div>
         </div>
         """)
-
-        # Attach the image if we have a local copy matching this filename
-        if img_path.exists():
-            with open(img_path, "rb") as f:
-                mime_type, _ = mimetypes.guess_type(img_path)
-                subtype = mime_type.split("/")[-1] if mime_type else "jpeg"
-                img = MIMEImage(f.read(), _subtype=subtype)
-                img.add_header("Content-ID", f"<{filename}>")
-                img.add_header("Content-Disposition", "inline", filename=filename)
-                msg.attach(img)
 
     html_parts.append("</div></body></html>")
     html_content = "".join(html_parts)
     alt.attach(MIMEText(html_content, "html"))
 
+    # Attach images using the actual local_image path and book['cid']
+    for book in all_books:
+        img_path = book.get("local_image")
+        cid = book.get("cid")
+        if img_path and cid:
+            p = Path(img_path)
+            if p.exists():
+                try:
+                    with open(p, "rb") as f:
+                        data = f.read()
+                    mime_type, _ = mimetypes.guess_type(str(p))
+                    if mime_type and mime_type.startswith("image/"):
+                        subtype = mime_type.split("/")[1]
+                    else:
+                        subtype = "jpeg"
+                    img = MIMEImage(data, _subtype=subtype)
+                    img.add_header("Content-ID", f"<{cid}>")
+                    img.add_header("Content-Disposition", "inline", filename=cid)
+                    msg.attach(img)
+                    print(f"[Email] attached {p} as cid:{cid}")
+                except Exception as e:
+                    print(f"[Email] failed to attach {p}: {e}")
+            else:
+                print(f"[Email] image file missing: {p}")
+        else:
+            # no image for this book
+            pass
+
+    # send
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(SENDER_EMAIL, APP_PASSWORD)
@@ -562,6 +582,14 @@ async def main():
 
         # Download images (using Playwright context.request)
         await download_images_with_playwright(context, all_books)
+
+        # Debug: print which books have local images and cids
+        print("=== Image status ===")
+        for i, b in enumerate(all_books, start=1):
+            print(f"{i}. {b.get('publisher','?')} - {b.get('title','?')}")
+            print(f"    image_url: {b.get('image')}")
+            print(f"    local_image: {b.get('local_image')}")
+            print(f"    cid: {b.get('cid')}")
 
         # Send email (will include images if filenames match those used above)
         send_email(all_books)
