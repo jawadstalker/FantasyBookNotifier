@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Fantasy Book Notifier - Subscribe</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+  <div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-md-8 col-lg-6">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <h3 class="card-title mb-3">Subscribe for fantasy book updates</h3>
+            <form id="subscribeForm">
+              <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" class="form-control" id="email" placeholder="you@example.com" required>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Choose publishers</label>
+                <div id="publishersList" class="form-check">
+                  Loading publishers...
+                </div>
+              </div>
+
+              <div class="d-grid">
+                <button type="submit" class="btn btn-primary">Subscribe</button>
+              </div>
+
+              <div id="message" class="mt-3" role="status" aria-live="polite"></div>
+            </form>
+          </div>
+        </div>
+
+        <p class="text-muted small mt-3">The backend will start scraping selected publishers and email the results.</p>
+      </div>
+    </div>
+  </div>
+
+<script>
+async function loadPublishers() {
+  try {
+    const res = await fetch('/publishers');
+    const data = await res.json();
+    const cont = document.getElementById('publishersList');
+    cont.innerHTML = '';
+    const pubs = data.publishers || [];
+    pubs.forEach((p, idx) => {
+      const id = 'pub_' + idx;
+      const div = document.createElement('div');
+      div.className = 'form-check';
+      div.innerHTML = `
+        <input class="form-check-input" type="checkbox" value="${p}" id="${id}">
+        <label class="form-check-label" for="${id}">${p}</label>`;
+      cont.appendChild(div);
+    });
+    if (pubs.length === 0) cont.innerText = 'No publishers available.';
+  } catch (err) {
+    console.error(err);
+    document.getElementById('publishersList').innerText = 'Failed to load publishers.';
+  }
+}
+
+loadPublishers();
+
+const form = document.getElementById('subscribeForm');
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('email').value.trim();
+  const checked = Array.from(document.querySelectorAll('#publishersList input[type=checkbox]:checked')).map(cb => cb.value);
+
+  if (!email) { showMessage('Please enter a valid email.', 'danger'); return; }
+  if (checked.length === 0) { showMessage('Please select at least one publisher.', 'danger'); return; }
+
+  showMessage('Sending subscription...','info');
+
+  try {
+    const res = await fetch('/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, publishers: checked })
+    });
+    const data = await res.json();
+    if (res.ok) showMessage(data.message || 'Subscribed successfully!', 'success');
+    else showMessage(data.error || 'Subscription failed', 'danger');
+  } catch (err) {
+    console.error(err);
+    showMessage('Network error: could not reach server.', 'danger');
+  }
+});
+
+function showMessage(text, type) {
+  const el = document.getElementById('message');
+  const cls = type === 'success' ? 'alert alert-success' : (type === 'danger' ? 'alert alert-danger' : 'alert alert-secondary');
+  el.className = cls;
+  el.textContent = text;
+}
+</script>
+
+</body>
+</html>

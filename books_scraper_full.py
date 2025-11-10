@@ -1,11 +1,11 @@
-# books_scraper_full.py one
-
+# books_scraper_full.py
 # Requirements:
 #   pip install playwright aiohttp
 #   playwright install
 #
-# Usage:
-#   python books_scraper_full.py
+# This file exports an async runner `run_for(publishers, receiver_email, per_publisher=3)`
+# that collects books from the requested publishers, downloads images, saves JSON and sends an email.
+# It can also be run standalone (will scrape all configured publishers and send to the configured RECEIVER_EMAIL).
 
 import asyncio
 import json
@@ -21,11 +21,12 @@ from email.mime.image import MIMEImage
 from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 
 # ======================
-# Email Settings (kept as requested)
+# Email Settings (replace with real values or override at runtime)
 # ======================
-SENDER_EMAIL = "your email"
-APP_PASSWORD = "your app password"
-RECEIVER_EMAIL = "your reciver email"
+SENDER_EMAIL = "jawadvamps@gmail.com"
+APP_PASSWORD = "tdsf iszn bhli sucr"
+RECEIVER_EMAIL = "jawadvamps@gmail.com"
+
 # ======================
 # Image Folder
 # ======================
@@ -46,10 +47,8 @@ FANTASYLIT_URL = "https://fantasyliterature.com/"
 # Utilities
 # ======================
 def safe_filename(name: str) -> str:
-    # remove problematic characters, replace whitespace with underscore
     name = re.sub(r'[\\/*?:"<>|\n\r]', "", name)
     name = re.sub(r'\s+', "_", name.strip())
-    # limit length so we don't hit OS limits
     return name[:180]
 
 def parse_srcset(srcset_text: str):
@@ -79,7 +78,6 @@ def parse_srcset(srcset_text: str):
     return pairs
 
 def pick_best_image(base_url: str, attrs: dict) -> str:
-    # attrs is a dict with possible keys: data-srcset, srcset, data-src, src, ix-src
     for key in ("data-srcset", "srcset"):
         ss = attrs.get(key) or ""
         parsed = parse_srcset(ss)
@@ -111,7 +109,6 @@ def choose_extension_from_content_type(content_type: str) -> str:
     guess = mimetypes.guess_extension(content_type)
     if guess:
         return guess
-    # common fallbacks
     if content_type == "image/jpeg":
         return ".jpg"
     if content_type == "image/png":
@@ -121,9 +118,6 @@ def choose_extension_from_content_type(content_type: str) -> str:
     return ".jpg"
 
 def unique_path(path: Path) -> Path:
-    """
-    If path exists, append a counter before the extension: name_1.ext, name_2.ext, ...
-    """
     if not path.exists():
         return path
     base = path.stem
@@ -137,7 +131,7 @@ def unique_path(path: Path) -> Path:
         i += 1
 
 # ======================
-# Scrapers (existing ones kept similar)
+# Scrapers
 # ======================
 
 async def scrape_baazh(context):
@@ -310,40 +304,28 @@ async def scrape_daw(context):
         await page.close()
     return books
 
-# ======================
-# Improved FantasyLiterature scraper (reliable)
-# ======================
 async def scrape_fantasylit(context):
     books = []
     page = await context.new_page()
     try:
         print("[FantasyLit] Opening page...")
         await page.goto(FANTASYLIT_URL, timeout=90000, wait_until="load")
-
-        # Wait a bit for client-side rendering (if any)
         try:
             await page.wait_for_selector("article.post", timeout=30000)
         except PWTimeout:
             print("[FantasyLit] no article.post within 30s — continuing to try to find content")
-
-        # Gentle scroll to encourage lazy-loading
         for _ in range(3):
             await page.evaluate("window.scrollBy(0, window.innerHeight);")
             await asyncio.sleep(1.0)
-
         containers = await page.query_selector_all("article.post")
         print(f"[FantasyLit] Found {len(containers)} article.post elements")
-
         for idx, el in enumerate(containers, start=1):
-            # Title & link
             link_el = await el.query_selector("h2.post-title a")
             title = (await link_el.inner_text()) if link_el else "No Title"
             title = title.strip()
             link = (await link_el.get_attribute("href")) if link_el else "#"
             if link:
                 link = urljoin(FANTASYLIT_URL, link)
-
-            # Image: check src, data-src, srcset
             img_el = await el.query_selector(".header a img, .header img")
             img_src = ""
             if img_el:
@@ -356,8 +338,6 @@ async def scrape_fantasylit(context):
                         img_src = srcset.split(",")[0].strip().split(" ")[0]
                 if img_src:
                     img_src = urljoin(FANTASYLIT_URL, img_src)
-
-            # Author: try author link first
             author = ""
             author_el = await el.query_selector(".post-content .post-block .author-detail a[rel='author'], .post-meta a[rel='author']")
             if author_el:
@@ -366,15 +346,12 @@ async def scrape_fantasylit(context):
                 except:
                     author = ""
             if not author:
-                # fallback: look for "by ..." in excerpt
                 p_el = await el.query_selector(".excerpt.entry-summary p")
                 if p_el:
                     text = (await p_el.inner_text()) or ""
                     m = re.search(r"\bby\s+([A-Z][\w\s\-\.'’]+)", text)
                     if m:
                         author = m.group(1).strip()
-
-            # Date / meta and excerpt
             date_meta = ""
             meta_el = await el.query_selector(".post-meta .meta-info, .post-meta")
             if meta_el:
@@ -384,7 +361,6 @@ async def scrape_fantasylit(context):
             excerpt_el = await el.query_selector(".excerpt.entry-summary p")
             if excerpt_el:
                 excerpt = (await excerpt_el.inner_text()).strip()
-
             books.append({
                 "publisher": "Fantasy Literature",
                 "title": title,
@@ -397,7 +373,6 @@ async def scrape_fantasylit(context):
                 "description": ""
             })
             print(f"[FantasyLit] {idx}. {title} — image: {bool(img_src)} — author: {author or 'N/A'}")
-
     except PWTimeout:
         print("Timeout while loading Fantasy Literature.")
     except Exception as e:
@@ -407,7 +382,7 @@ async def scrape_fantasylit(context):
     return books
 
 # ======================
-# Download Images (updated to produce email-friendly filenames)
+# Download Images
 # ======================
 async def download_images_with_playwright(context, books):
     for book in books:
@@ -419,7 +394,6 @@ async def download_images_with_playwright(context, books):
             print(f"[Download] No image URL for '{book.get('title','<no title>')}' — skipping")
             continue
 
-        # We'll fetch the image to determine content-type and save with correct extension
         try:
             print(f"[Download] fetching {img_url}")
             response = await context.request.get(img_url, timeout=30000)
@@ -431,20 +405,17 @@ async def download_images_with_playwright(context, books):
             print(f"[Download] failed {img_url} status={response.status}")
             continue
 
-        # choose extension from content-type header
         ct = response.headers.get("content-type", "") if hasattr(response, "headers") else ""
         ext = choose_extension_from_content_type(ct)
-        # prepare filename
         filename_base = safe_filename(f"{book.get('publisher','Unknown')}_{book.get('title','no_title')[:60]}")
         filename = filename_base + ext
         path = IMAGE_DIR / filename
-        path = unique_path(path)  # ensure uniqueness if collision
+        path = unique_path(path)
 
         try:
             body = await response.body()
             with open(path, "wb") as f:
                 f.write(body)
-            # store local path and cid (use filename as cid)
             book["local_image"] = str(path)
             book["cid"] = path.name
             print(f"[Download] saved {path} (content-type: {ct})")
@@ -454,7 +425,7 @@ async def download_images_with_playwright(context, books):
             book["cid"] = None
 
 # ======================
-# Send Email (use saved local_image and cid)
+# Send Email
 # ======================
 def send_email(all_books):
     msg = MIMEMultipart("related")
@@ -466,7 +437,6 @@ def send_email(all_books):
     msg.attach(alt)
     alt.attach(MIMEText("Latest books available.", "plain"))
 
-    # start HTML body
     html_parts = [
         """
        <html>
@@ -488,19 +458,17 @@ h1 { text-align:center; color:#2c3e50; }
 """
     ]
 
-    # Build HTML containing CID references and attach images
     for book in all_books:
         title = book.get("title", "No Title")
         publisher = book.get("publisher", "Unknown Publisher")
         price = book.get("price", "N/A")
         link = book.get("link", "#")
         author = book.get("author", "N/A")
-        cid = book.get("cid")  # this should be filename like "Publisher_Title.jpg"
+        cid = book.get("cid")
         img_html = ""
         if cid:
             img_html = f'<img src="cid:{cid}" alt="{title}" />'
         else:
-            # placeholder if no image
             img_html = '<div style="width:120px; height:180px; background:#eee; display:inline-block; margin-right:15px; border-radius:5px;"></div>'
 
         html_parts.append(f"""
@@ -519,7 +487,6 @@ h1 { text-align:center; color:#2c3e50; }
     html_content = "".join(html_parts)
     alt.attach(MIMEText(html_content, "html"))
 
-    # Attach images using the actual local_image path and book['cid']
     for book in all_books:
         img_path = book.get("local_image")
         cid = book.get("cid")
@@ -544,10 +511,8 @@ h1 { text-align:center; color:#2c3e50; }
             else:
                 print(f"[Email] image file missing: {p}")
         else:
-            # no image for this book
             pass
 
-    # send
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(SENDER_EMAIL, APP_PASSWORD)
@@ -557,45 +522,64 @@ h1 { text-align:center; color:#2c3e50; }
         print("Failed to send email:", e)
 
 # ======================
-# Main
+# Runner wrapper and mapping
 # ======================
-async def main():
+
+# Map human-readable publisher names to scraper functions
+SCRAPERS_MAP = {
+    "Baazh Book": scrape_baazh,
+    "Porteghaal": scrape_porteghaal,
+    "Tandis Pub": scrape_tandis,
+    "Tor Books": scrape_tor,
+    "DAW Books": scrape_daw,
+    "Fantasy Literature": scrape_fantasylit,
+}
+
+async def run_for(publishers: list, receiver_email: str, per_publisher: int = 3):
+    """
+    Run scrapers for the requested publishers and send email to receiver_email.
+    publishers: list of publisher names which must match keys in SCRAPERS_MAP.
+    """
+    global RECEIVER_EMAIL
+    prev_receiver = RECEIVER_EMAIL
+    RECEIVER_EMAIL = receiver_email
+
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(viewport={"width":1280,"height":800})
 
         all_books = []
-        # run scrapers (you can reorder or remove as you like)
-        all_books += await scrape_baazh(context)
-        all_books += await scrape_fantasylit(context)
-        all_books += await scrape_porteghaal(context)
-        all_books += await scrape_tandis(context)
-        all_books += await scrape_tor(context)
-        all_books += await scrape_daw(context)
+        for name in publishers:
+            fn = SCRAPERS_MAP.get(name)
+            if fn:
+                try:
+                    books = await fn(context)
+                    all_books += books
+                except Exception as e:
+                    print(f"[Runner] error scraping {name}: {e}")
+            else:
+                print(f"[Runner] unknown publisher requested: {name}")
 
-        # limit per publisher (default 3)
-        all_books = limit_books_per_publisher(all_books, 3)
+        all_books = limit_books_per_publisher(all_books, per_publisher)
 
-        # Save JSON
         with open("all_books.json", "w", encoding="utf-8") as f:
             json.dump(all_books, f, ensure_ascii=False, indent=2)
-        print(f"Saved all_books.json ({len(all_books)} entries)")
+        print(f"[Runner] Saved all_books.json ({len(all_books)} entries)")
 
-        # Download images (using Playwright context.request)
         await download_images_with_playwright(context, all_books)
-
-        # Debug: print which books have local images and cids
-        print("=== Image status ===")
-        for i, b in enumerate(all_books, start=1):
-            print(f"{i}. {b.get('publisher','?')} - {b.get('title','?')}")
-            print(f"    image_url: {b.get('image')}")
-            print(f"    local_image: {b.get('local_image')}")
-            print(f"    cid: {b.get('cid')}")
-
-        # Send email (will include images if filenames match those used above)
         send_email(all_books)
 
         await browser.close()
+
+    RECEIVER_EMAIL = prev_receiver
+
+# ======================
+# Main: allow running standalone
+# ======================
+async def main():
+    # default run: all publishers; sends to configured RECEIVER_EMAIL
+    all_pubs = list(SCRAPERS_MAP.keys())
+    await run_for(all_pubs, RECEIVER_EMAIL)
 
 if __name__ == "__main__":
     asyncio.run(main())
