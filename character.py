@@ -5,13 +5,11 @@ import spacy
 from collections import Counter
 import re
 
-# بارگذاری مدل انگلیسی spaCy
 nlp = spacy.load("en_core_web_sm")
 
 def extract_persons_spacy(text):
     doc = nlp(text)
     persons = [ent.text.strip() for ent in doc.ents if ent.label_ == "PERSON"]
-    # مرتب‌سازی و حذف تکرار با حفظ بیشترین فراوانی
     counted = Counter(persons)
     return [name for name, _ in counted.most_common()]
 
@@ -25,13 +23,12 @@ def on_hotkey():
         print("Found PERSONs:")
         for n in names:
             print("-", n)
-        # همچنین می‌ذاریم نتایج دوباره روی کلیپ‌بورد باشن
         pyperclip.copy("\n".join(names))
         print("\n(Names copied to clipboard.)")
     else:
-        print("اسمِ شخصیتی پیدا نشد.")
+        print("no charcters have been found")
 
 if __name__ == "__main__":
     print("Press Ctrl+Shift+V to extract character names from clipboard. Ctrl+C to exit.")
     keyboard.add_hotkey('ctrl+shift+v', on_hotkey)
-    keyboard.wait()  # برنامه در حال گوش دادن می‌ماند
+    keyboard.wait()  
