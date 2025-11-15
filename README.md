@@ -13,7 +13,7 @@ The program:
 
 ---
 
-## 🚀 Features
+##  Features
 - Summarize very long chapters (5k–50k words)
 - Works offline after the first model download
 - Supports both CPU and GPU
@@ -22,7 +22,7 @@ The program:
 
 ---
 
-## 📦 Installation
+##  Installation
 
 Install all required libraries in **one command**:
 
@@ -30,13 +30,13 @@ Install all required libraries in **one command**:
 pip install transformers torch sentencepiece pdfplumber PyPDF2
 ```
 
-> ⚠️ Note:  
+> Note:  
 > - Installing `torch` may download 150MB–800MB depending on CPU/GPU version.  
 > - Models will download on first run (BART ~1.6GB, mT5-small ~300MB).
 
 ---
 
-## 📝 Usage
+##  Usage
 
 ### **1. Summarize a TXT file**
 
@@ -63,7 +63,7 @@ Paste the text in terminal, then press:
 
 ---
 
-## ⚙️ Optional Arguments
+##  Optional Arguments
 
 | Argument | Description |
 |---------|-------------|
@@ -74,7 +74,7 @@ Paste the text in terminal, then press:
 
 ---
 
-## 📁 Example Directory Structure
+##  Example Directory Structure
 
 ```
 project/
@@ -86,7 +86,7 @@ project/
 
 ---
 
-## 🧠 Recommended Models
+##  Recommended Models
 
 ### English:
 - `facebook/bart-large-cnn` (Best quality)
@@ -110,7 +110,7 @@ This ensures stable performance even on extremely large texts.
 
 ---
 
-## 🧑‍💻 Contributing
+## Contributing
 
 You can:
 - Add GUI (Tkinter / PySide)
@@ -119,7 +119,7 @@ You can:
 
 ---
 
-## 📜 License
+##  License
 This project is free to use and modify.
 
 ---
