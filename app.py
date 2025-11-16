@@ -16,6 +16,11 @@ from collections import Counter
 # --- NEW imports for Summarization ---
 from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
 
+# --- NEW imports for Book Recommender ---
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from nlp import get_recommendations 
 # ---------------------------
 # Flask app
 # ---------------------------
@@ -38,6 +43,28 @@ SUMMARIZER_MODEL = "facebook/bart-large-cnn"
 tokenizer = AutoTokenizer.from_pretrained(SUMMARIZER_MODEL)
 model = AutoModelForSeq2SeqLM.from_pretrained(SUMMARIZER_MODEL)
 summarizer = pipeline("summarization", model=model, tokenizer=tokenizer, device=-1)
+
+# ---------------------------
+# Load Books Dataset for Recommender
+# ---------------------------
+BOOKS_CSV_PATH = "Books.csv"  # مسیر فایل CSV دانلود شده
+
+try:
+    books_df = pd.read_csv(BOOKS_CSV_PATH, on_bad_lines="skip", encoding="latin-1", low_memory=False)
+    books_df = books_df[["Book-Title", "Book-Author", "Publisher"]].dropna()
+    books_df["description"] = (
+        books_df["Book-Title"].astype(str) + " " +
+        books_df["Book-Author"].astype(str) + " " +
+        books_df["Publisher"].astype(str)
+    )
+
+    tfidf = TfidfVectorizer(stop_words="english")
+    tfidf_matrix = tfidf.fit_transform(books_df["description"])
+    print("Book recommender TF-IDF model loaded. Matrix shape:", tfidf_matrix.shape)
+except Exception as e:
+    print("Error loading book recommender:", e)
+    books_df = None
+    tfidf_matrix = None
 
 # ---------------------------
 # Persian Name Extractor
@@ -98,10 +125,38 @@ def summarize_api():
     if not text:
         return jsonify({"error": "text is required"}), 400
 
-    # simple summarization (English only)
     out = summarizer(text, max_length=130, min_length=30, do_sample=False)
     summary = out[0]['summary_text'].strip()
     return jsonify({"summary": summary})
+
+# ---------------------------
+# API: Book Recommender
+# ---------------------------
+@app.route("/recommend", methods=["POST"])
+def recommend_books_api():
+    if books_df is None or tfidf_matrix is None:
+        return jsonify({"error": "Book recommender not available"}), 500
+
+    data = request.get_json() or {}
+    keywords = data.get("keywords", "").strip()
+    if not keywords:
+        return jsonify({"error": "keywords are required"}), 400
+
+    user_vec = tfidf.transform([keywords])
+    similarities = cosine_similarity(user_vec, tfidf_matrix).flatten()
+    top_indices = similarities.argsort()[-3:][::-1]
+
+    results = []
+    for idx in top_indices:
+        book = books_df.iloc[idx]
+        results.append({
+            "title": book["Book-Title"],
+            "author": book["Book-Author"],
+            "publisher": book["Publisher"],
+            "score": float(similarities[idx])
+        })
+
+    return jsonify({"recommendations": results})
 
 # ---------------------------
 # Existing Routes
