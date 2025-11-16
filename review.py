@@ -4,7 +4,7 @@ this one looks a bit diffrent
 Usage:
     python local_summarizer.py --input-file chapter.txt --lang en
     python local_summarizer.py --input-file chapter_fa.txt --lang fa
-
+it has a little limit that i sure can handle if i have time
 You can also run without --input-file and paste text into stdin (end with EOF).
 """
 

@@ -19,9 +19,8 @@ from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 
 from playwright.async_api import async_playwright, TimeoutError as PWTimeout
-
 # ======================
-# Email Settings (replace with real values or override at runtime)
+# Email Settings (replace with real values or override at runtime and you need your app password frm google)
 # ======================
 SENDER_EMAIL = "jawadvamps@gmail.com"
 APP_PASSWORD = "tdsf iszn bhli sucr"
