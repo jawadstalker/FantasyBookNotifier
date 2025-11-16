@@ -1,4 +1,3 @@
-# app.py
 from flask import Flask, request, jsonify, send_from_directory
 import threading
 import asyncio
@@ -20,7 +19,7 @@ from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from nlp import get_recommendations 
+
 # ---------------------------
 # Flask app
 # ---------------------------
@@ -47,10 +46,10 @@ summarizer = pipeline("summarization", model=model, tokenizer=tokenizer, device=
 # ---------------------------
 # Load Books Dataset for Recommender
 # ---------------------------
-BOOKS_CSV_PATH = "Books.csv"  # مسیر فایل CSV دانلود شده
+BOOKS_CSV_PATH = "Books.csv"  # حتما مسیر درست بدهید
 
 try:
-    books_df = pd.read_csv(BOOKS_CSV_PATH, on_bad_lines="skip", encoding="latin-1", low_memory=False)
+    books_df = pd.read_csv(BOOKS_CSV_PATH, on_bad_lines="skip", encoding="latin-1", low_memory=False, dtype=str)
     books_df = books_df[["Book-Title", "Book-Author", "Publisher"]].dropna()
     books_df["description"] = (
         books_df["Book-Title"].astype(str) + " " +
