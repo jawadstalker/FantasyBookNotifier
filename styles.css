@@ -1,0 +1,188 @@
+:root{
+    /* رنگ‌های پایه - light */
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --muted: #6b7280;
+    --text: #0f172a;
+    --brand: #0b5ed7; /* primary */
+    --brand-600: #094bb0;
+    --card-shadow: 0 8px 24px rgba(15,23,42,0.06);
+    --glass: rgba(255,255,255,0.6);
+    --input-bg: #fbfdff;
+    --success: #16a34a;
+    --danger: #dc3545;
+  }
+  
+  /* dark theme overrides */
+  .theme-dark {
+    --bg: #0b1220;
+    --surface: #0f1724;
+    --muted: #94a3b8;
+    --text: #e6eef8;
+    --brand: #4f8cff;
+    --brand-600: #3b72e6;
+    --card-shadow: 0 8px 30px rgba(2,6,23,0.7);
+    --glass: rgba(12,18,28,0.55);
+    --input-bg: #0b1420;
+    --success: #22c55e;
+    --danger: #ff6b6b;
+  }
+  
+  /* Global body */
+  body {
+    background: linear-gradient(180deg, var(--bg), color-mix(in srgb, var(--bg) 95%, var(--surface) 5%));
+    color: var(--text);
+    transition: background .35s ease, color .25s ease;
+    -webkit-font-smoothing:antialiased;
+    font-family: Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  
+  /* Container tweaks */
+  .container {
+    max-width: 1100px;
+  }
+  
+  /* Cards */
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    border: 0;
+    border-radius: .9rem;
+    box-shadow: var(--card-shadow);
+    backdrop-filter: blur(6px);
+    overflow: hidden;
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+  .card:hover { transform: translateY(-4px); box-shadow: 0 14px 40px rgba(2,6,23,0.12); }
+  
+  /* Card body spacing */
+  .card-body { padding: 1.4rem; }
+  
+  /* Headings */
+  .card-title {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    display:flex;
+    align-items:center;
+    gap:.6rem;
+  }
+  
+  /* Muted text and small */
+  .text-muted { color: var(--muted) !important; }
+  
+  /* Form controls (inputs & textareas) */
+  .form-control {
+    background: var(--input-bg);
+    border: 1px solid rgba(15,23,42,0.06);
+    border-radius: .6rem;
+    padding: .8rem .9rem;
+    transition: box-shadow .12s ease, border-color .12s ease, transform .08s ease;
+    box-shadow: none;
+    color: var(--text);
+  }
+  .form-control:focus {
+    outline: none;
+    border-color: color-mix(in srgb, var(--brand) 70%, transparent 30%);
+    box-shadow: 0 6px 22px color-mix(in srgb, var(--brand) 12%, transparent);
+    transform: translateY(-1px);
+  }
+  
+  /* Disabled / readonly fields */
+  .form-control[readonly], .form-control:disabled {
+    opacity: .9;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+  }
+  
+  /* Buttons (primary + dark) */
+  .btn-primary {
+    background: linear-gradient(90deg, var(--brand), var(--brand-600));
+    border: none;
+    border-radius: .65rem;
+    padding: .68rem .95rem;
+    font-weight: 600;
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--brand) 14%, transparent);
+    transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+  }
+  .btn-primary:active { transform: translateY(1px) scale(.998); box-shadow: 0 4px 10px rgba(11,78,183,0.12); }
+  .btn-secondary, .btn-dark {
+    border-radius: .65rem;
+    padding: .6rem .9rem;
+  }
+  
+  /* Icon utility */
+  .icon-btn {
+    display:inline-grid;
+    place-items:center;
+    width:42px;
+    height:42px;
+    border-radius:10px;
+    border: 1px solid rgba(15,23,42,0.06);
+    background: var(--glass);
+    cursor: pointer;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .icon-btn:active { transform: scale(.98); }
+  
+  /* Theme toggle specific */
+  .theme-toggle {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 1050;
+    display:flex;
+    gap:.5rem;
+    align-items:center;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 85%, transparent), transparent);
+    padding:.55rem;
+    border-radius: 999px;
+    box-shadow: 0 10px 30px rgba(2,6,23,0.08);
+    border: 1px solid rgba(15,23,42,0.05);
+    backdrop-filter: blur(8px);
+  }
+  
+  /* Tiny label next to toggle */
+  .theme-toggle .label {
+    font-weight:600;
+    color: var(--muted);
+    font-size: .85rem;
+    padding-right: .4rem;
+  }
+  
+  /* Layout tweaks for large textareas */
+  .char-box {
+    min-height: 220px;
+    border-radius: .6rem;
+    font-size: .95rem;
+    resize: vertical;
+    padding: .9rem;
+  }
+  
+  /* Message alerts area: subtle */
+  .alert {
+    border-radius: .6rem;
+    margin-bottom: 0;
+  }
+  
+  /* Publisher list checkboxes (look nicer) */
+  #publishersList .form-check {
+    margin-bottom: .4rem;
+    padding: .45rem .55rem;
+    border-radius: .55rem;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+    border: 1px solid rgba(15,23,42,0.03);
+  }
+  
+  /* Responsive: make layout tighter on small screens */
+  @media (max-width: 768px) {
+    .card-body { padding: 1rem; }
+    .theme-toggle { right: 12px; bottom: 12px; padding:.45rem; }
+  }
+  
+  /* Small helper for subtle separators */
+  .hr-subtle {
+    height:1px;
+    background: linear-gradient(90deg, transparent, rgba(15,23,42,0.04), transparent);
+    margin: .8rem 0;
+  }
+  
+  

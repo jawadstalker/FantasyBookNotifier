@@ -5,14 +5,37 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Fantasy Book Notifier - Subscribe + Character Extractor + Summarizer</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
-  <style>
-    .char-box {
-      height: 220px;
-      resize: none;
-    }
-  </style>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
+<!-- Theme toggle floating control -->
+<div class="theme-toggle" role="region" aria-label="Theme toggle">
+  <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme" aria-pressed="false">
+    <i class="bi bi-sun-fill" id="themeIcon" style="font-size:1.05rem"></i>
+  </button>
+  <div class="label d-none d-sm-block">Theme</div>
+</div>
+
+<!-- NOTE:
+To toggle the icon dynamically (sun/moon), add a small observer script below.
+-->
+<script>
+(function(){
+  const icon = document.getElementById('themeIcon');
+  function refreshIcon() {
+    const dark = document.documentElement.classList.contains('theme-dark');
+    icon.className = dark ? 'bi bi-moon-stars-fill' : 'bi bi-sun-fill';
+    // update aria-pressed based on dark
+    const btn = icon.closest('button');
+    if (btn) btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+  }
+  // run on load and on storage change
+  refreshIcon();
+  new MutationObserver(refreshIcon).observe(document.documentElement, {attributes:true, attributeFilter:['class']});
+  window.addEventListener('storage', refreshIcon);
+})();
+</script>
+
 <body class="bg-light">
   <div class="container py-5">
 
@@ -253,6 +276,38 @@ async function summarizeText() {
     out.value = "";
   }
 }
+/* Theme toggle: store in localStorage and apply .theme-dark class on documentElement */
+(function() {
+  const KEY = 'fbn-theme';
+  const root = document.documentElement;
+
+  function applyTheme(mode) {
+    if (mode === 'dark') root.classList.add('theme-dark');
+    else root.classList.remove('theme-dark');
+  }
+
+  // initial
+  const saved = localStorage.getItem(KEY) || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  applyTheme(saved);
+
+  // expose toggle function
+  window.toggleTheme = function() {
+    const current = root.classList.contains('theme-dark') ? 'dark' : 'light';
+    const next = current === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    localStorage.setItem(KEY, next);
+  };
+
+  // optional: allow keyboard shortcut (T)
+  document.addEventListener('keydown', (e) => {
+    if ((e.key === 't' || e.key === 'T') && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      toggleTheme();
+    }
+  });
+})();
+
+
 </script>
 
 </body>
