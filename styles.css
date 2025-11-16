@@ -221,7 +221,7 @@
 /* ---------------------------
    Card header accent line
    --------------------------- */
-.card-title {
+/* .card-title {
   position: relative;
   padding-left: .2rem;
 }
@@ -242,7 +242,7 @@
 .card:hover .card-title::before {
   transform: translateX(0) scaleX(1);
   opacity: 1;
-}
+} */
 
 /* ---------------------------
    Buttons: depth + micro-interactions
@@ -366,7 +366,7 @@
   transition: width var(--hover-time) var(--hover-ease), opacity var(--hover-time);
   opacity:0.9;
 }
-.form-label:hover::after { width: 48%; opacity:1; }
+.form-label:hover::after { width: 48%; opacity:1; } 
 
 /* ---------------------------
    Accessibility: keyboard focus visible
