@@ -185,4 +185,215 @@
     margin: .8rem 0;
   }
   
-  
+  /* ===========================
+   Hover & Interactive Effects
+   =========================== */
+
+/* جهانی: انیمیشن‌های نرم و زمان‌بندی */
+* { transition-timing-function: cubic-bezier(.2,.9,.3,1); }
+:root, .theme-dark { --hover-time: .18s; --hover-ease: cubic-bezier(.2,.9,.3,1); }
+
+/* ---------------------------
+   Card hover (تقویت عمق و رنگ)
+   --------------------------- */
+.card {
+  transform-origin: center;
+  will-change: transform, box-shadow;
+}
+.card:hover {
+  transform: translateY(-8px) scale(1.004);
+  box-shadow: 0 22px 60px rgba(2,6,23,0.14);
+}
+
+/* subtle gradient glow on hover (top-left) */
+.card::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  border-radius: .9rem;
+  background: radial-gradient(600px 160px at 12% 6%, color-mix(in srgb, var(--brand) 10%, transparent), transparent 10%);
+  opacity:0;
+  transition: opacity var(--hover-time) var(--hover-ease);
+}
+.card:hover::after{ opacity: .85; }
+
+/* ---------------------------
+   Card header accent line
+   --------------------------- */
+/* .card-title {
+  position: relative;
+  padding-left: .2rem;
+}
+.card-title::before{
+  content: "";
+  width: 36px;
+  height: 4px;
+  background: linear-gradient(90deg, var(--brand), var(--brand-600));
+  border-radius: 8px;
+  position: absolute;
+  left: -0.9rem;
+  top: calc(50% - 2px);
+  transform-origin: left center;
+  transform: translateX(-6px) scaleX(.9);
+  opacity: .85;
+  transition: transform var(--hover-time) var(--hover-ease), opacity var(--hover-time);
+}
+.card:hover .card-title::before {
+  transform: translateX(0) scaleX(1);
+  opacity: 1;
+} */
+
+/* ---------------------------
+   Buttons: depth + micro-interactions
+   --------------------------- */
+.btn {
+  transition: transform var(--hover-time) var(--hover-ease), box-shadow var(--hover-time);
+}
+.btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 26px rgba(2,6,23,0.10);
+}
+.btn:active { transform: translateY(0); box-shadow: 0 6px 14px rgba(2,6,23,0.08); }
+
+/* primary: subtle inner shine on hover */
+.btn-primary::after{
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: .65rem;
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+  mix-blend-mode: overlay;
+  opacity: 0;
+  transition: opacity var(--hover-time);
+  pointer-events: none;
+}
+.btn-primary:hover::after { opacity: .35; }
+
+/* dark/secondary: border glow */
+.btn-dark:hover { border: 1px solid color-mix(in srgb, var(--brand) 50%, transparent); }
+
+/* ---------------------------
+   Icon button hover (گِرِیپ + جهش)
+   --------------------------- */
+.icon-btn {
+  transition: transform .12s var(--hover-ease), box-shadow .12s var(--hover-ease), background .12s var(--hover-ease);
+}
+.icon-btn:hover {
+  transform: translateY(-4px) rotate(-3deg) scale(1.04);
+  box-shadow: 0 12px 30px rgba(2,6,23,0.12);
+}
+.icon-btn:active { transform: scale(.98) rotate(0deg); }
+
+/* ---------------------------
+   Publisher list item hover (قابل کلیک‌تر)
+   --------------------------- */
+#publishersList .form-check {
+  cursor: pointer;
+  transition: transform var(--hover-time) var(--hover-ease), box-shadow var(--hover-time);
+}
+#publishersList .form-check:hover {
+  transform: translateX(6px);
+  box-shadow: 0 8px 18px rgba(2,6,23,0.06);
+}
+
+/* checkbox nicer focus/hover */
+#publishersList .form-check input[type="checkbox"] {
+  transition: transform .12s var(--hover-ease), box-shadow .12s var(--hover-ease);
+  width: 18px; height: 18px;
+}
+#publishersList .form-check input[type="checkbox"]:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 14px rgba(11,78,183,0.08);
+}
+
+/* ---------------------------
+   Inputs & Textareas (focus glow + lift)
+   --------------------------- */
+.form-control {
+  transition: box-shadow .18s var(--hover-ease), transform .12s var(--hover-ease), border-color .12s var(--hover-ease);
+}
+.form-control:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(2,6,23,0.04); }
+.form-control:focus {
+  transform: translateY(-4px);
+  box-shadow: 0 22px 50px color-mix(in srgb, var(--brand) 12%, transparent);
+  border-color: var(--brand);
+  outline: none;
+}
+
+/* textarea focused: soft gradient highlight */
+.char-box:focus {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--input-bg) 80%, var(--glass) 20%), var(--input-bg));
+}
+
+/* ---------------------------
+   Extract / Summary success animations
+   --------------------------- */
+.alert-success {
+  animation: pop .36s cubic-bezier(.2,.9,.3,1);
+}
+@keyframes pop {
+  0% { transform: translateY(12px) scale(.98); opacity: 0; }
+  60% { transform: translateY(-6px) scale(1.02); opacity: 1; }
+  100% { transform: translateY(0) scale(1); }
+}
+
+/* ---------------------------
+   Floating theme toggle hover
+   --------------------------- */
+.theme-toggle {
+  transition: transform var(--hover-time) var(--hover-ease), box-shadow var(--hover-time);
+}
+.theme-toggle:hover { transform: translateY(-6px); box-shadow: 0 20px 40px rgba(2,6,23,0.14); }
+.theme-toggle .icon-btn { width: 44px; height: 44px; border-radius: 12px; }
+
+/* ---------------------------
+   Tiny underline animation for labels
+   --------------------------- */
+.form-label {
+  display:inline-block;
+  position: relative;
+  cursor: default;
+}
+.form-label::after{
+  content:"";
+  position:absolute;
+  left:0;
+  bottom:-6px;
+  height:2px;
+  width:0%;
+  background: linear-gradient(90deg, var(--brand), var(--brand-600));
+  transition: width var(--hover-time) var(--hover-ease), opacity var(--hover-time);
+  opacity:0.9;
+}
+.form-label:hover::after { width: 48%; opacity:1; } 
+
+/* ---------------------------
+   Accessibility: keyboard focus visible
+   --------------------------- */
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--brand) 16%, transparent);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+/* ---------------------------
+   small screens: reduce hover intensity (touch devices)
+   --------------------------- */
+@media (hover: none) and (pointer: coarse) {
+  .card:hover, .btn:hover, .icon-btn:hover, #publishersList .form-check:hover { transform: none; box-shadow: none; }
+  #publishersList .form-check { transform: none; }
+}
+
+/* ---------------------------
+   Optional: helper class to 'pulse' important CTA
+   --------------------------- */
+.pulse-cta {
+  animation: pulse 3.6s infinite linear;
+  transform-origin: center;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(79,140,255,0.12); }
+  70% { box-shadow: 0 0 0 18px rgba(79,140,255,0.00); }
+  100% { box-shadow: 0 0 0 0 rgba(79,140,255,0.00); }
+}

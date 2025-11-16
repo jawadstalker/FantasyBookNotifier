@@ -3,11 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Fantasy Book Notifier - Subscribe + Character Extractor + Summarizer</title>
+  <title>Fantasy Book Notifier - Subscribe + Character Extractor + Summarizer + Recommender</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
   <link rel="stylesheet" href="styles.css">
 </head>
+
+<body class="bg-light">
+
 <!-- Theme toggle floating control -->
 <div class="theme-toggle" role="region" aria-label="Theme toggle">
   <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme" aria-pressed="false">
@@ -16,299 +19,325 @@
   <div class="label d-none d-sm-block">Theme</div>
 </div>
 
-<!-- NOTE:
-To toggle the icon dynamically (sun/moon), add a small observer script below.
--->
-<script>
-(function(){
-  const icon = document.getElementById('themeIcon');
-  function refreshIcon() {
-    const dark = document.documentElement.classList.contains('theme-dark');
-    icon.className = dark ? 'bi bi-moon-stars-fill' : 'bi bi-sun-fill';
-    // update aria-pressed based on dark
-    const btn = icon.closest('button');
-    if (btn) btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
-  }
-  // run on load and on storage change
-  refreshIcon();
-  new MutationObserver(refreshIcon).observe(document.documentElement, {attributes:true, attributeFilter:['class']});
-  window.addEventListener('storage', refreshIcon);
-})();
-</script>
+<div class="container py-5">
 
-<body class="bg-light">
-  <div class="container py-5">
+  <!-- SUBSCRIBE SECTION -->
+  <div class="row justify-content-center mb-5">
+    <div class="col-md-8 col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h3 class="card-title mb-3">Subscribe for fantasy book updates</h3>
+          <form id="subscribeForm">
+            <div class="mb-3">
+              <label for="email" class="form-label">Email</label>
+              <input type="email" class="form-control" id="email" placeholder="you@example.com" required>
+            </div>
 
-    <!-- SUBSCRIBE SECTION -->
-    <div class="row justify-content-center mb-5">
-      <div class="col-md-8 col-lg-6">
-        <div class="card shadow-sm">
-          <div class="card-body">
-            <h3 class="card-title mb-3">Subscribe for fantasy book updates</h3>
-            <form id="subscribeForm">
-              <div class="mb-3">
-                <label for="email" class="form-label">Email</label>
-                <input type="email" class="form-control" id="email" placeholder="you@example.com" required>
-              </div>
-
-              <div class="mb-3">
-                <label class="form-label">Choose publishers</label>
-                <div id="publishersList" class="form-check">
-                  Loading publishers...
-                </div>
-              </div>
-
-              <div class="d-grid">
-                <button type="submit" class="btn btn-primary">Subscribe</button>
-              </div>
-
-              <div id="message" class="mt-3" role="status" aria-live="polite"></div>
-            </form>
-          </div>
-        </div>
-
-        <p class="text-muted small mt-3">
-          The backend will start scraping selected publishers and email the results.
-        </p>
-      </div>
-    </div>
-
-    <!-- CHARACTER NAME EXTRACTION SECTION -->
-    <div class="row justify-content-center mb-5">
-      <div class="col-md-10">
-        <div class="card shadow-sm">
-          <div class="card-body">
-            <h3 class="card-title mb-3">Character Name Extractor (Persian + English)</h3>
-
-            <div class="row g-3">
-              <!-- Input -->
-              <div class="col-md-6">
-                <label class="form-label">Input Text</label>
-                <textarea id="inputText" class="form-control char-box" placeholder="Paste Persian or English story text here..."></textarea>
-              </div>
-
-              <!-- Output -->
-              <div class="col-md-6">
-                <label class="form-label">Extracted Names</label>
-                <textarea id="outputText" class="form-control char-box" readonly placeholder="Extracted name list will appear here..."></textarea>
+            <div class="mb-3">
+              <label class="form-label">Choose publishers</label>
+              <div id="publishersList" class="form-check">
+                Loading publishers...
               </div>
             </div>
 
-            <div class="d-grid mt-3">
-              <button class="btn btn-dark" onclick="extractNames()">Extract Names</button>
+            <div class="d-grid">
+              <button type="submit" class="btn btn-primary">Subscribe</button>
             </div>
 
-            <div id="extractMessage" class="mt-3"></div>
-          </div>
+            <div id="message" class="mt-3" role="status" aria-live="polite"></div>
+          </form>
         </div>
       </div>
+      <p class="text-muted small mt-3">
+        The backend will start scraping selected publishers and email the results.
+      </p>
     </div>
-
-    <!-- TEXT SUMMARIZER SECTION -->
-    <div class="row justify-content-center mb-5">
-      <div class="col-md-10">
-        <div class="card shadow-sm">
-          <div class="card-body">
-            <h3 class="card-title mb-3">Text Summarizer (English)</h3>
-
-            <div class="row g-3">
-              <!-- Input -->
-              <div class="col-md-6">
-                <label class="form-label">Input Text</label>
-                <textarea id="summaryInput" class="form-control char-box" placeholder="Paste English text here..."></textarea>
-              </div>
-
-              <!-- Output -->
-              <div class="col-md-6">
-                <label class="form-label">Summary</label>
-                <textarea id="summaryOutput" class="form-control char-box" readonly placeholder="Summary will appear here..."></textarea>
-              </div>
-            </div>
-
-            <div class="d-grid mt-3">
-              <button class="btn btn-dark" onclick="summarizeText()">Summarize Text</button>
-            </div>
-
-            <div id="summaryMessage" class="mt-3"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
   </div>
 
-<script>
-/* ----------------------------------
-   LOAD PUBLISHERS
+  <!-- CHARACTER NAME EXTRACTION SECTION -->
+  <div class="row justify-content-center mb-5">
+    <div class="col-md-10">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h3 class="card-title mb-3">Character Name Extractor (Persian + English)</h3>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Input Text</label>
+              <textarea id="inputText" class="form-control char-box" placeholder="Paste Persian or English story text here..."></textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Extracted Names</label>
+              <textarea id="outputText" class="form-control char-box" readonly placeholder="Extracted name list will appear here..."></textarea>
+            </div>
+          </div>
+          <div class="d-grid mt-3">
+            <button class="btn btn-dark" onclick="extractNames()">Extract Names</button>
+          </div>
+          <div id="extractMessage" class="mt-3"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEXT SUMMARIZER SECTION -->
+  <div class="row justify-content-center mb-5">
+    <div class="col-md-10">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h3 class="card-title mb-3">Text Summarizer (English)</h3>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Input Text</label>
+              <textarea id="summaryInput" class="form-control char-box" placeholder="Paste English text here..."></textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Summary</label>
+              <textarea id="summaryOutput" class="form-control char-box" readonly placeholder="Summary will appear here..."></textarea>
+            </div>
+          </div>
+          <div class="d-grid mt-3">
+            <button class="btn btn-dark" onclick="summarizeText()">Summarize Text</button>
+          </div>
+          <div id="summaryMessage" class="mt-3"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOOK RECOMMENDER SECTION -->
+  <div class="row justify-content-center mb-5">
+    <div class="col-md-10">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h3 class="card-title mb-3">Book Recommender</h3>
+          <div class="mb-3">
+            <label class="form-label">Enter 5 keywords (English)</label>
+            <input type="text" id="keywordsInput" class="form-control" placeholder="magic dragon wizard forest adventure">
+          </div>
+          <div class="d-grid">
+            <button class="btn btn-primary" onclick="getRecommendations()">Recommend Books</button>
+          </div>
+          <div id="recommendMessage" class="mt-3"></div>
+          <ul id="recommendList" class="list-group mt-2"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ----------------------------------
+   BOOK RECOMMENDER
 ---------------------------------- */
-async function loadPublishers() {
-  try {
-    const res = await fetch('/publishers');
-    const data = await res.json();
-    const cont = document.getElementById('publishersList');
-    cont.innerHTML = '';
-    const pubs = data.publishers || [];
-    pubs.forEach((p, idx) => {
-      const id = 'pub_' + idx;
-      const div = document.createElement('div');
-      div.className = 'form-check';
-      div.innerHTML = `
-        <input class="form-check-input" type="checkbox" value="${p}" id="${id}">
-        <label class="form-check-label" for="${id}">${p}</label>`;
-      cont.appendChild(div);
-    });
-    if (pubs.length === 0) cont.innerText = 'No publishers available.';
-  } catch (err) {
-    console.error(err);
-    document.getElementById('publishersList').innerText = 'Failed to load publishers.';
-  }
-}
-loadPublishers();
+async function getRecommendations() {
+  const keywords = document.getElementById("keywordsInput").value.trim();
+  const msg = document.getElementById("recommendMessage");
+  const list = document.getElementById("recommendList");
 
-/* ----------------------------------
-   SUBSCRIBE FORM
----------------------------------- */
-const form = document.getElementById('subscribeForm');
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const email = document.getElementById('email').value.trim();
-  const checked = Array.from(document.querySelectorAll('#publishersList input[type=checkbox]:checked')).map(cb => cb.value);
-
-  if (!email) { showMessage('Please enter a valid email.', 'danger'); return; }
-  if (checked.length === 0) { showMessage('Please select at least one publisher.', 'danger'); return; }
-
-  showMessage('Sending subscription...','info');
-
-  try {
-    const res = await fetch('/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, publishers: checked })
-    });
-    const data = await res.json();
-    if (res.ok) showMessage(data.message || 'Subscribed successfully!', 'success');
-    else showMessage(data.error || 'Subscription failed', 'danger');
-  } catch (err) {
-    console.error(err);
-    showMessage('Network error: could not reach server.', 'danger');
-  }
-});
-
-function showMessage(text, type) {
-  const el = document.getElementById('message');
-  const cls = type === 'success' ? 'alert alert-success'
-            : type === 'danger' ? 'alert alert-danger'
-            : 'alert alert-secondary';
-  el.className = cls;
-  el.textContent = text;
-}
-
-/* ----------------------------------
-   CHARACTER NAME EXTRACTOR
----------------------------------- */
-async function extractNames() {
-  const text = document.getElementById("inputText").value.trim();
-  const out = document.getElementById("outputText");
-  const msg = document.getElementById("extractMessage");
-
-  if (!text) {
-    msg.innerHTML = `<div class="alert alert-danger">Please enter some text.</div>`;
+  list.innerHTML = "";
+  if (!keywords) {
+    msg.innerHTML = `<div class="alert alert-danger">Please enter 5 keywords.</div>`;
     return;
   }
 
   msg.innerHTML = `<div class="alert alert-info">Processing...</div>`;
 
   try {
-    const res = await fetch("/extract-names", {
+    const res = await fetch("/recommend", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ text })
+      body: JSON.stringify({ keywords })
     });
 
     const data = await res.json();
 
     if (data.error) {
       msg.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
-      out.value = "";
     } else {
-      msg.innerHTML = `<div class="alert alert-success">Done!</div>`;
-      out.value = data.names.join("\n");
+      msg.innerHTML = `<div class="alert alert-success">Recommendations ready!</div>`;
+      data.recommendations.forEach(book => {
+        const li = document.createElement("li");
+        li.className = "list-group-item";
+        li.innerHTML = `<strong>${book.title}</strong> by ${book.author} (${book.publisher})`;
+        list.appendChild(li);
+      });
     }
   } catch (err) {
-    msg.innerHTML = `<div class="alert alert-danger">Server error.</div>`;
-    out.value = "";
+    console.error(err);
+    msg.innerHTML = `<div class="alert alert-danger">Server error. Could not fetch recommendations.</div>`;
   }
 }
-
-/* ----------------------------------
-   TEXT SUMMARIZER
----------------------------------- */
-async function summarizeText() {
-  const text = document.getElementById("summaryInput").value.trim();
-  const out = document.getElementById("summaryOutput");
-  const msg = document.getElementById("summaryMessage");
-
-  if (!text) {
-    msg.innerHTML = `<div class="alert alert-danger">Please enter some text.</div>`;
-    return;
-  }
-
-  msg.innerHTML = `<div class="alert alert-info">Processing...</div>`;
-
-  try {
-    const res = await fetch("/summarize", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ text })
-    });
-
-    const data = await res.json();
-
-    if (data.error) {
-      msg.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
-      out.value = "";
-    } else {
-      msg.innerHTML = `<div class="alert alert-success">Done!</div>`;
-      out.value = data.summary;
+    /* ----------------------------------
+       LOAD PUBLISHERS
+    ---------------------------------- */
+    async function loadPublishers() {
+      try {
+        const res = await fetch('/publishers');
+        const data = await res.json();
+        const cont = document.getElementById('publishersList');
+        cont.innerHTML = '';
+        const pubs = data.publishers || [];
+        pubs.forEach((p, idx) => {
+          const id = 'pub_' + idx;
+          const div = document.createElement('div');
+          div.className = 'form-check';
+          div.innerHTML = `
+            <input class="form-check-input" type="checkbox" value="${p}" id="${id}">
+            <label class="form-check-label" for="${id}">${p}</label>`;
+          cont.appendChild(div);
+        });
+        if (pubs.length === 0) cont.innerText = 'No publishers available.';
+      } catch (err) {
+        console.error(err);
+        document.getElementById('publishersList').innerText = 'Failed to load publishers.';
+      }
     }
-  } catch (err) {
-    msg.innerHTML = `<div class="alert alert-danger">Server error.</div>`;
-    out.value = "";
-  }
-}
-/* Theme toggle: store in localStorage and apply .theme-dark class on documentElement */
-(function() {
-  const KEY = 'fbn-theme';
-  const root = document.documentElement;
-
-  function applyTheme(mode) {
-    if (mode === 'dark') root.classList.add('theme-dark');
-    else root.classList.remove('theme-dark');
-  }
-
-  // initial
-  const saved = localStorage.getItem(KEY) || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  applyTheme(saved);
-
-  // expose toggle function
-  window.toggleTheme = function() {
-    const current = root.classList.contains('theme-dark') ? 'dark' : 'light';
-    const next = current === 'dark' ? 'light' : 'dark';
-    applyTheme(next);
-    localStorage.setItem(KEY, next);
-  };
-
-  // optional: allow keyboard shortcut (T)
-  document.addEventListener('keydown', (e) => {
-    if ((e.key === 't' || e.key === 'T') && (e.ctrlKey || e.metaKey)) {
+    loadPublishers();
+    
+    /* ----------------------------------
+       SUBSCRIBE FORM
+    ---------------------------------- */
+    const form = document.getElementById('subscribeForm');
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      toggleTheme();
+      const email = document.getElementById('email').value.trim();
+      const checked = Array.from(document.querySelectorAll('#publishersList input[type=checkbox]:checked')).map(cb => cb.value);
+    
+      if (!email) { showMessage('Please enter a valid email.', 'danger'); return; }
+      if (checked.length === 0) { showMessage('Please select at least one publisher.', 'danger'); return; }
+    
+      showMessage('Sending subscription...','info');
+    
+      try {
+        const res = await fetch('/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, publishers: checked })
+        });
+        const data = await res.json();
+        if (res.ok) showMessage(data.message || 'Subscribed successfully!', 'success');
+        else showMessage(data.error || 'Subscription failed', 'danger');
+      } catch (err) {
+        console.error(err);
+        showMessage('Network error: could not reach server.', 'danger');
+      }
+    });
+    
+    function showMessage(text, type) {
+      const el = document.getElementById('message');
+      const cls = type === 'success' ? 'alert alert-success'
+                : type === 'danger' ? 'alert alert-danger'
+                : 'alert alert-secondary';
+      el.className = cls;
+      el.textContent = text;
     }
-  });
-})();
-
+    
+    /* ----------------------------------
+       CHARACTER NAME EXTRACTOR
+    ---------------------------------- */
+    async function extractNames() {
+      const text = document.getElementById("inputText").value.trim();
+      const out = document.getElementById("outputText");
+      const msg = document.getElementById("extractMessage");
+    
+      if (!text) {
+        msg.innerHTML = `<div class="alert alert-danger">Please enter some text.</div>`;
+        return;
+      }
+    
+      msg.innerHTML = `<div class="alert alert-info">Processing...</div>`;
+    
+      try {
+        const res = await fetch("/extract-names", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ text })
+        });
+    
+        const data = await res.json();
+    
+        if (data.error) {
+          msg.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+          out.value = "";
+        } else {
+          msg.innerHTML = `<div class="alert alert-success">Done!</div>`;
+          out.value = data.names.join("\n");
+        }
+      } catch (err) {
+        msg.innerHTML = `<div class="alert alert-danger">Server error.</div>`;
+        out.value = "";
+      }
+    }
+    
+    /* ----------------------------------
+       TEXT SUMMARIZER
+    ---------------------------------- */
+    async function summarizeText() {
+      const text = document.getElementById("summaryInput").value.trim();
+      const out = document.getElementById("summaryOutput");
+      const msg = document.getElementById("summaryMessage");
+    
+      if (!text) {
+        msg.innerHTML = `<div class="alert alert-danger">Please enter some text.</div>`;
+        return;
+      }
+    
+      msg.innerHTML = `<div class="alert alert-info">Processing...</div>`;
+    
+      try {
+        const res = await fetch("/summarize", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ text })
+        });
+    
+        const data = await res.json();
+    
+        if (data.error) {
+          msg.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+          out.value = "";
+        } else {
+          msg.innerHTML = `<div class="alert alert-success">Done!</div>`;
+          out.value = data.summary;
+        }
+      } catch (err) {
+        msg.innerHTML = `<div class="alert alert-danger">Server error.</div>`;
+        out.value = "";
+      }
+    }
+    /* Theme toggle: store in localStorage and apply .theme-dark class on documentElement */
+    (function() {
+      const KEY = 'fbn-theme';
+      const root = document.documentElement;
+    
+      function applyTheme(mode) {
+        if (mode === 'dark') root.classList.add('theme-dark');
+        else root.classList.remove('theme-dark');
+      }
+    
+      // initial
+      const saved = localStorage.getItem(KEY) || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      applyTheme(saved);
+    
+      // expose toggle function
+      window.toggleTheme = function() {
+        const current = root.classList.contains('theme-dark') ? 'dark' : 'light';
+        const next = current === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        localStorage.setItem(KEY, next);
+      };
+    
+      // optional: allow keyboard shortcut (T)
+      document.addEventListener('keydown', (e) => {
+        if ((e.key === 't' || e.key === 'T') && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          toggleTheme();
+        }
+      });
+    })();
+    
+    
+    
 
 </script>
-
 </body>
 </html>
