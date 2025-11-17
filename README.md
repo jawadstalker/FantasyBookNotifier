@@ -56,9 +56,7 @@ steps, and usage instructions.
 
 4.  Run app:
 
-```{=html}
-<!-- -->
-```
+
     python app.py
 
 ## API Documentation
@@ -200,9 +198,7 @@ scraper\
 -   Flask runs with `debug=True`
 -   Set custom port via environment:
 
-```{=html}
-<!-- -->
-```
+
     PORT=8000 python app.py
 
 ------------------------------------------------------------------------
