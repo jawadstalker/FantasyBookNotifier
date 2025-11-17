@@ -180,6 +180,22 @@ scraper\
 - sends user email after scraping
 
 ------------------------------------------------------------------------
+## 📦 Libraries & Documentation
+
+| Library | Purpose | Documentation |
+|---------|---------|---------------|
+| Flask | Web framework / API | [Flask Docs](https://flask.palletsprojects.com/) |
+| threading | Concurrent scraping | [threading Docs](https://docs.python.org/3/library/threading.html) |
+| asyncio | Asynchronous tasks | [asyncio Docs](https://docs.python.org/3/library/asyncio.html) |
+| os | Environment / path utilities | [os Docs](https://docs.python.org/3/library/os.html) |
+| stanza | Persian NLP & Named Entity Recognition | [Stanza Docs](https://stanfordnlp.github.io/stanza/) |
+| spacy | English NLP & Named Entity Recognition | [spaCy Docs](https://spacy.io/usage) |
+| langdetect | Language detection | [langdetect Docs](https://pypi.org/project/langdetect/) |
+| collections.Counter | Count & sort occurrences | [Counter Docs](https://docs.python.org/3/library/collections.html#collections.Counter) |
+| transformers | Text summarization (HuggingFace) | [Transformers Docs](https://huggingface.co/docs/transformers/index) |
+| pandas | Data manipulation / CSV | [pandas Docs](https://pandas.pydata.org/docs/) |
+| sklearn.feature_extraction.text | TF-IDF vectorizer | [TF-IDF Docs](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html) |
+| sklearn.metrics.pairwise | Cosine similarity | [cosine_similarity Docs](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.pairwise.cosine_similarity.html) |
 
 ## Deployment Notes
 
