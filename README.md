@@ -3,125 +3,200 @@
 <img src="logo.png" alt="FantasyBookNotifier Banner" width="200"/>
 
 
-This project allows you to **summarize long story chapters** (English or Persian) completely **offline** using Python and HuggingFace models.
+## Overview
 
-The program:
-- Accepts **plain text (TXT)** or **PDF files**
-- Uses local **Transformer** models to generate summaries
-- Supports both **English** and **Persian**
-- Automatically splits long texts into smaller chunks (hierarchical summarization)
+FantasyBookNotifier is a Flask-based web application that automates
+fetching the latest books from Iranian and foreign publishers, extracts
+character names from text in English and Persian, summarizes long
+English texts, and provides book recommendations using TF‑IDF
+similarity.
 
----
+This documentation explains all components, APIs, models, installation
+steps, and usage instructions.
 
-##  Features
-- Summarize very long chapters (5k–50k words)
-- Works offline after the first model download
-- Supports both CPU and GPU
-- PDF → Text extraction built-in
-- Clean command-line interface
+## Features
 
----
+-   Automatic book scraping from multiple publishers\
+-   Email notifications\
+-   Persian & English name extraction (Stanza + spaCy)\
+-   English text summarization (BART large CNN)\
+-   Book recommendation system using TF‑IDF\
+-   RESTful API routes\
+-   Multi-threaded scraping worker
 
-##  Installation
+## Tech Stack
 
-Install all required libraries in **one command**:
+-   **Backend:** Python, Flask\
+-   **NLP:** spaCy, Stanza, Transformers (HuggingFace)\
+-   **ML:** Scikit-learn (TF‑IDF + Cosine similarity)\
+-   **Data:** Pandas\
+-   **Async:** asyncio\
+-   **Threading:** Python threading module
 
+## Project Structure
+
+    /project
+    │── app.py
+    │── books_scraper_full.py
+    │── index.html
+    │── Books.csv
+    │── requirements.txt
+
+## Installation
+
+1.  Clone repository\
+2.  Install python dependencies:
+
+```{=html}
+<!-- -->
 ```
-pip install transformers torch sentencepiece pdfplumber PyPDF2
+    pip install -r requirements.txt
+    python -m spacy download en_core_web_sm
+    python -m stanza.download fa
+
+3.  Ensure `Books.csv` is available in root directory.
+
+4.  Run app:
+
+```{=html}
+<!-- -->
 ```
+    python app.py
 
-> Note:  
-> - Installing `torch` may download 150MB–800MB depending on CPU/GPU version.  
-> - Models will download on first run (BART ~1.6GB, mT5-small ~300MB).
+## API Documentation
 
----
+### 1. Extract Names
 
-##  Usage
+`POST /extract-names`
 
-### **1. Summarize a TXT file**
+**Body:**
 
-```
-python local_summarizer.py --input-file chapter.txt --lang en
-```
-
-### **2. Summarize a PDF**
-
-```
-python local_summarizer.py --input-file chapter.pdf --lang fa
-```
-
-### **3. Paste text manually**
-
-```
-python local_summarizer.py --lang en
-```
-
-Paste the text in terminal, then press:
-
-- **Ctrl + D** (Linux / Mac)
-- **Ctrl + Z + Enter** (Windows)
-
----
-
-##  Optional Arguments
-
-| Argument | Description |
-|---------|-------------|
-| `--lang en/fa` | Input language |
-| `--model <name>` | Custom HuggingFace model |
-| `--device -1/0/1` | CPU or GPU selection |
-| `--input-file file` | Text or PDF file |
-
----
-
-##  Example Directory Structure
-
-```
-project/
-│
-├── local_summarizer.py
-├── README.md
-└── chapter.pdf
+``` json
+{"text": "your text here"}
 ```
 
----
+**Response:**
 
-##  Recommended Models
+``` json
+{"names": ["Alice", "Bob"]}
+```
 
-### English:
-- `facebook/bart-large-cnn` (Best quality)
-- `sshleifer/distilbart-cnn-12-6` (Lightweight)
+------------------------------------------------------------------------
 
-### Persian:
-- `google/mt5-small` (Multilingual)
-- Any Persian summarization model from HuggingFace
+### 2. Summarize Text
 
----
+`POST /summarize`
 
-## 🛠 How It Works
+**Body:**
 
-1. Detects if input is TXT or PDF  
-2. If PDF → Extracts text using `pdfplumber`  
-3. Splits text into manageable chunks  
-4. Summarizes each chunk  
-5. Summarizes all summaries → final summary  
+``` json
+{"text": "long english text..."}
+```
 
-This ensures stable performance even on extremely large texts.
+**Response:**
 
----
+``` json
+{"summary": "short version"}
+```
 
-## Contributing
+------------------------------------------------------------------------
 
-You can:
-- Add GUI (Tkinter / PySide)
-- Add FastAPI web interface
-- Add support for more languages
+### 3. Book Recommender
 
----
+`POST /recommend`
 
-##  License
-This project is free to use and modify.
+**Body:**
 
----
+``` json
+{"keywords": "magic wizard fantasy"}
+```
 
-Enjoy your fast, offline chapter summarizer!
+**Response:**
+
+``` json
+{
+  "recommendations": [
+    {"title": "...", "author": "...", "publisher": "...", "score": 0.87}
+  ]
+}
+```
+
+------------------------------------------------------------------------
+
+### 4. Subscribe to Publishers
+
+`POST /subscribe`
+
+**Body:**
+
+``` json
+{
+  "email": "user@example.com",
+  "publishers": ["Amazon", "SomePublisher"]
+}
+```
+
+------------------------------------------------------------------------
+
+## NLP Components
+
+### Persian NER
+
+Uses **Stanza**\
+Extracts proper Persian names (`pers` tag).
+
+### English NER
+
+Uses **spaCy (en_core_web_sm)**\
+Extracts `PERSON` entities.
+
+### Language Detection
+
+`langdetect` library automatically routes text to correct pipeline.
+
+------------------------------------------------------------------------
+
+## Summarizer Model
+
+Uses **facebook/bart-large-cnn**\
+- max_length = 130\
+- min_length = 30
+
+------------------------------------------------------------------------
+
+## Recommender System
+
+1.  Loads Books.csv\
+2.  Builds TF‑IDF vector for each book\
+3.  Compares user keywords with cosine similarity\
+4.  Returns top 3 matches
+
+------------------------------------------------------------------------
+
+## Threaded Scraper Worker
+
+The `/subscribe` route starts a background thread: - runs asyncio
+scraper\
+- sends user email after scraping
+
+------------------------------------------------------------------------
+
+## Deployment Notes
+
+-   Flask runs with `debug=True`
+-   Set custom port via environment:
+
+```{=html}
+<!-- -->
+```
+    PORT=8000 python app.py
+
+------------------------------------------------------------------------
+
+## License
+
+MIT License
+
+## Author
+
+Jawad Stalker
