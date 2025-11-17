@@ -47,9 +47,7 @@ steps, and usage instructions.
 1.  Clone repository\
 2.  Install python dependencies:
 
-```{=html}
-<!-- -->
-```
+
     pip install -r requirements.txt
     python -m spacy download en_core_web_sm
     python -m stanza.download fa
