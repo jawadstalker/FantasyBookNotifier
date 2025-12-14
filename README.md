@@ -10,7 +10,7 @@ fetching the latest books from Iranian and foreign publishers, extracts
 character names from text in English and Persian, summarizes long
 English texts, and provides book recommendations using TF‑IDF
 similarity.
-
+it could get a lot of cool features
 This documentation explains all components, APIs, models, installation
 steps, and usage instructions.
 
