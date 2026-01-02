@@ -13,7 +13,7 @@ similarity.
 it could get a lot of cool features
 This documentation explains all components, APIs, models, installation
 steps, and usage instructions.
-
+feel free to use it 
 ## Features
 
 -   Automatic book scraping from multiple publishers\
