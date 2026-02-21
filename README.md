@@ -14,6 +14,7 @@ it could get a lot of cool features
 This documentation explains all components, APIs, models, installation
 steps, and usage instructions.
 feel free to use it 
+still working in other sides of it. 
 ## Features
 
 -   Automatic book scraping from multiple publishers\
