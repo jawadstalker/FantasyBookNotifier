@@ -428,6 +428,8 @@ async def download_images_with_playwright(context, books):
 # Send Email
 # ======================
 def send_email(all_books):
+    if not SENDER_EMAIL or not APP_PASSWORD or not RECEIVER_EMAIL:
+        raise RuntimeError("Email is not configured; set SENDER_EMAIL, APP_PASSWORD and RECEIVER_EMAIL.")
     msg = MIMEMultipart("related")
     msg["Subject"] = "📚 Latest Books from Publishers"
     msg["From"] = SENDER_EMAIL
