@@ -1,12 +1,13 @@
 from flask import Flask, request, jsonify, send_from_directory
-import asyncio
 import logging
 import os
 import re
 from pathlib import Path
-import threading
 
 import books_scraper_full as scraper
+from celery.result import AsyncResult
+from celery_app import celery_app
+from tasks import scrape_publishers_task
 import stanza
 import spacy
 from langdetect import detect, LangDetectException
@@ -264,24 +265,42 @@ def subscribe():
         }), 400
     publishers = list(dict.fromkeys(publishers))
 
-    def worker(recipient, selected_publishers):
-        try:
-            logger.info("Scraping started for %s (%s)", recipient, selected_publishers)
-            asyncio.run(scraper.run_for(selected_publishers, recipient))
-            logger.info("Scraping completed for %s", recipient)
-        except Exception:
-            logger.exception("Scraping worker failed for %s", recipient)
+    try:
+        job = scrape_publishers_task.delay(publishers, email)
+    except Exception:
+        logger.exception("Could not enqueue scraping job")
+        return jsonify({"error": "scraping queue is unavailable"}), 503
 
-    threading.Thread(
-        target=worker,
-        args=(email, publishers),
-        name="publisher-scraper",
-        daemon=True,
-    ).start()
     return jsonify({
-        "message": "subscription accepted; scraping started",
+        "message": "scraping job queued",
+        "job_id": job.id,
+        "status_url": f"/jobs/{job.id}",
         "publishers": publishers,
     }), 202
+
+
+@app.route("/jobs/<task_id>", methods=["GET"])
+def get_scraping_job(task_id):
+    # Celery's default task identifiers are UUIDs. Reject malformed IDs early.
+    if not re.fullmatch(r"[0-9a-fA-F-]{36}", task_id):
+        return jsonify({"error": "invalid job id"}), 400
+
+    job = AsyncResult(task_id, app=celery_app)
+    response = {"job_id": task_id, "state": job.state.lower()}
+    if job.state == "SUCCESS":
+        result = job.result if isinstance(job.result, dict) else {}
+        response["result"] = {
+            "message": result.get("message", "scraping completed"),
+            "publishers": result.get("publishers", []),
+        }
+    elif job.state == "FAILURE":
+        logger.error("Scraping job %s failed: %s", task_id, job.result)
+        response["error"] = "scraping job failed; check worker logs"
+    elif job.state == "RETRY":
+        response["message"] = "job will be retried after a transient failure"
+    elif job.state in {"PENDING", "STARTED", "RECEIVED"}:
+        response["message"] = "job is queued or running"
+    return jsonify(response), 200
 
 
 if __name__ == "__main__":

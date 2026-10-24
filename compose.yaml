@@ -1,0 +1,51 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  web:
+    build: .
+    restart: unless-stopped
+    command: ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--timeout", "180", "app:app"]
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./Books.csv:/app/Books.csv:ro
+      - ./book_images:/app/book_images
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    restart: unless-stopped
+    command: ["celery", "-A", "celery_app:celery_app", "worker", "--loglevel=INFO", "--concurrency=1"]
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    volumes:
+      - ./book_images:/app/book_images
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  redis_data:

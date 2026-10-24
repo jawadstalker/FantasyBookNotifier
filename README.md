@@ -120,6 +120,12 @@ still working in other sides of it.
 
 ------------------------------------------------------------------------
 
+### 5. Check a scraping job
+
+`GET /jobs/<job_id>`
+
+The `POST /subscribe` response includes a `job_id` and a `status_url`. Poll this URL to see whether the job is pending, running, retrying, successful, or failed. Results expire after 24 hours; this endpoint is not a permanent job history.
+
 ### 4. Subscribe to Publishers
 
 `POST /subscribe`
@@ -193,6 +199,18 @@ scraper\
 | pandas | Data manipulation / CSV | [pandas Docs](https://pandas.pydata.org/docs/) |
 | sklearn.feature_extraction.text | TF-IDF vectorizer | [TF-IDF Docs](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html) |
 | sklearn.metrics.pairwise | Cosine similarity | [cosine_similarity Docs](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.pairwise.cosine_similarity.html) |
+
+## Running with Docker Compose
+
+The API uses Celery and Redis for scraping jobs. For a local containerized setup:
+
+1. Install Docker with Compose support.
+2. Copy `.env.example` to `.env` and configure email settings.
+3. Put `Books.csv` in the project root if you want recommendations (it is not stored in Git).
+4. Run `docker compose up --build`.
+5. Open `http://localhost:5000/health`; follow worker output with `docker compose logs -f worker`.
+
+The initial image build downloads NLP models and may take several minutes. The web API, Redis broker and Celery worker run as separate services. Do not expose Redis directly to the public internet.
 
 ## Configuration and Deployment Notes
 
