@@ -1,197 +1,290 @@
 from flask import Flask, request, jsonify, send_from_directory
-import threading
 import asyncio
+import logging
 import os
+import re
+from pathlib import Path
+import threading
 
-# Existing import
 import books_scraper_full as scraper
-
-# --- NEW imports for Name Extraction ---
 import stanza
 import spacy
-from langdetect import detect
+from langdetect import detect, LangDetectException
 from collections import Counter
-
-# --- NEW imports for Summarization ---
 from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
-
-# --- NEW imports for Book Recommender ---
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# ---------------------------
-# Flask app
-# ---------------------------
-app = Flask(__name__, static_folder='.', static_url_path='')
+BASE_DIR = Path(__file__).resolve().parent
+MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(1 * 1024 * 1024)))
+MAX_NLP_TEXT_CHARS = int(os.getenv("MAX_NLP_TEXT_CHARS", "20000"))
+MAX_RECOMMENDATION_KEYWORDS_CHARS = int(os.getenv("MAX_RECOMMENDATION_KEYWORDS_CHARS", "1000"))
 
-# ---------------------------
-# Load NER Models
-# ---------------------------
-print("Loading Persian model (Stanza)...")
-fa_nlp = stanza.Pipeline('fa')
+app = Flask(__name__, static_folder=str(BASE_DIR), static_url_path="")
+app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
 
-print("Loading English model (spaCy)...")
+
+@app.errorhandler(413)
+def request_too_large(_error):
+    return jsonify({"error": "request body is too large"}), 413
+
+
+@app.errorhandler(400)
+def bad_request(_error):
+    return jsonify({"error": "invalid request"}), 400
+
+
+def get_json_payload():
+    """Return a JSON object, rejecting arrays, scalars and malformed JSON."""
+    if not request.is_json:
+        return None
+    data = request.get_json(silent=True)
+    return data if isinstance(data, dict) else None
+
+
+def get_text_field(data, field, max_chars):
+    value = data.get(field)
+    if not isinstance(value, str):
+        return None, f"{field} must be a string"
+    value = value.strip()
+    if not value:
+        return None, f"{field} is required"
+    if len(value) > max_chars:
+        return None, f"{field} must be at most {max_chars} characters"
+    return value, None
+
+
+# Load NLP models at startup. These models are large; for constrained deployments,
+# run the API with a single worker or move inference into a dedicated worker service.
+logger.info("Loading Persian model (Stanza)...")
+fa_nlp = stanza.Pipeline("fa", processors="tokenize,ner", verbose=False)
+
+logger.info("Loading English model (spaCy)...")
 en_nlp = spacy.load("en_core_web_sm")
 
-# ---------------------------
-# Load Summarization Model
-# ---------------------------
-print("Loading English summarization model...")
-SUMMARIZER_MODEL = "facebook/bart-large-cnn"
+logger.info("Loading English summarization model...")
+SUMMARIZER_MODEL = os.getenv("SUMMARIZER_MODEL", "facebook/bart-large-cnn")
 tokenizer = AutoTokenizer.from_pretrained(SUMMARIZER_MODEL)
 model = AutoModelForSeq2SeqLM.from_pretrained(SUMMARIZER_MODEL)
 summarizer = pipeline("summarization", model=model, tokenizer=tokenizer, device=-1)
 
-# ---------------------------
-# Load Books Dataset for Recommender
-# ---------------------------
-BOOKS_CSV_PATH = "Books.csv"  # حتما مسیر درست بدهید
+# Load the catalogue relative to this file, rather than the shell's current directory.
+BOOKS_CSV_PATH = Path(os.getenv("BOOKS_CSV_PATH", str(BASE_DIR / "Books.csv")))
 
 try:
-    books_df = pd.read_csv(BOOKS_CSV_PATH, on_bad_lines="skip", encoding="latin-1", low_memory=False, dtype=str)
-    books_df = books_df[["Book-Title", "Book-Author", "Publisher"]].dropna()
+    books_df = pd.read_csv(
+        BOOKS_CSV_PATH,
+        on_bad_lines="skip",
+        encoding="latin-1",
+        low_memory=False,
+        dtype=str,
+    )
+    required_columns = ["Book-Title", "Book-Author", "Publisher"]
+    missing_columns = [column for column in required_columns if column not in books_df.columns]
+    if missing_columns:
+        raise ValueError(f"Books dataset is missing columns: {', '.join(missing_columns)}")
+
+    books_df = books_df[required_columns].dropna().drop_duplicates()
+    for column in required_columns:
+        books_df[column] = books_df[column].astype(str).str.strip()
+    books_df = books_df[
+        (books_df["Book-Title"] != "")
+        & (books_df["Book-Author"] != "")
+        & (books_df["Publisher"] != "")
+    ].reset_index(drop=True)
     books_df["description"] = (
-        books_df["Book-Title"].astype(str) + " " +
-        books_df["Book-Author"].astype(str) + " " +
-        books_df["Publisher"].astype(str)
+        books_df["Book-Title"] + " " + books_df["Book-Author"] + " " + books_df["Publisher"]
     )
 
-    tfidf = TfidfVectorizer(stop_words="english")
+    tfidf = TfidfVectorizer(stop_words="english", max_features=200000)
     tfidf_matrix = tfidf.fit_transform(books_df["description"])
-    print("Book recommender TF-IDF model loaded. Matrix shape:", tfidf_matrix.shape)
-except Exception as e:
-    print("Error loading book recommender:", e)
+    logger.info("Book recommender loaded: %s", tfidf_matrix.shape)
+except Exception:
+    logger.exception("Book recommender could not load dataset %s", BOOKS_CSV_PATH)
     books_df = None
+    tfidf = None
     tfidf_matrix = None
 
-# ---------------------------
-# Persian Name Extractor
-# ---------------------------
+
 def extract_persian_names(text):
     doc = fa_nlp(text)
-    names = set()
-    for ent in doc.ents:
-        if ent.type == 'pers':
-            name = ent.text.split()[0]
-            names.add(name)
-    return list(names)
+    return sorted({
+        ent.text.strip()
+        for ent in doc.ents
+        if ent.type == "pers" and ent.text.strip()
+    })
 
-# ---------------------------
-# English Name Extractor
-# ---------------------------
+
 def extract_english_names(text):
     doc = en_nlp(text)
-    persons = [ent.text.strip() for ent in doc.ents if ent.label_ == "PERSON"]
+    persons = [ent.text.strip() for ent in doc.ents if ent.label_ == "PERSON" and ent.text.strip()]
     counted = Counter(persons)
     return [name for name, _ in counted.most_common()]
 
-# ---------------------------
-# Language Detection Router
-# ---------------------------
+
 def extract_names_general(text):
     try:
         lang = detect(text)
-    except:
-        lang = "unknown"
+    except LangDetectException:
+        return []
 
     if lang == "fa":
         return extract_persian_names(text)
-    elif lang == "en":
+    if lang == "en":
         return extract_english_names(text)
-    else:
-        return []
+    return []
 
-# ---------------------------
-# API: Extract Names
-# ---------------------------
-@app.route('/extract-names', methods=['POST'])
+
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({
+        "status": "ok",
+        "recommender_available": books_df is not None and tfidf_matrix is not None,
+    })
+
+
+@app.route("/extract-names", methods=["POST"])
 def extract_names_api():
-    data = request.get_json() or {}
-    text = data.get("text", "").strip()
-    if not text:
-        return jsonify({"error": "text is required"}), 400
-    names = extract_names_general(text)
-    return jsonify({"names": names})
+    data = get_json_payload()
+    if data is None:
+        return jsonify({"error": "a JSON object is required"}), 400
+    text, error = get_text_field(data, "text", MAX_NLP_TEXT_CHARS)
+    if error:
+        return jsonify({"error": error}), 400
+    try:
+        return jsonify({"names": extract_names_general(text)})
+    except Exception:
+        logger.exception("Name extraction failed")
+        return jsonify({"error": "name extraction failed"}), 500
 
-# ---------------------------
-# API: Summarize Text
-# ---------------------------
-@app.route('/summarize', methods=['POST'])
+
+@app.route("/summarize", methods=["POST"])
 def summarize_api():
-    data = request.get_json() or {}
-    text = data.get("text", "").strip()
-    if not text:
-        return jsonify({"error": "text is required"}), 400
+    data = get_json_payload()
+    if data is None:
+        return jsonify({"error": "a JSON object is required"}), 400
+    text, error = get_text_field(data, "text", MAX_NLP_TEXT_CHARS)
+    if error:
+        return jsonify({"error": error}), 400
+    try:
+        out = summarizer(
+            text,
+            max_length=130,
+            min_length=30,
+            do_sample=False,
+            truncation=True,
+        )
+        return jsonify({"summary": out[0]["summary_text"].strip()})
+    except Exception:
+        logger.exception("Text summarization failed")
+        return jsonify({"error": "summarization failed"}), 500
 
-    out = summarizer(text, max_length=130, min_length=30, do_sample=False)
-    summary = out[0]['summary_text'].strip()
-    return jsonify({"summary": summary})
 
-# ---------------------------
-# API: Book Recommender
-# ---------------------------
 @app.route("/recommend", methods=["POST"])
 def recommend_books_api():
-    if books_df is None or tfidf_matrix is None:
-        return jsonify({"error": "Book recommender not available"}), 500
+    if books_df is None or tfidf is None or tfidf_matrix is None:
+        return jsonify({"error": "book recommender is not available"}), 503
 
-    data = request.get_json() or {}
-    keywords = data.get("keywords", "").strip()
-    if not keywords:
-        return jsonify({"error": "keywords are required"}), 400
+    data = get_json_payload()
+    if data is None:
+        return jsonify({"error": "a JSON object is required"}), 400
+    keywords, error = get_text_field(data, "keywords", MAX_RECOMMENDATION_KEYWORDS_CHARS)
+    if error:
+        return jsonify({"error": error}), 400
 
-    user_vec = tfidf.transform([keywords])
-    similarities = cosine_similarity(user_vec, tfidf_matrix).flatten()
-    top_indices = similarities.argsort()[-3:][::-1]
+    try:
+        user_vec = tfidf.transform([keywords])
+        similarities = cosine_similarity(user_vec, tfidf_matrix).flatten()
+        positive_indices = similarities.argsort()[::-1]
+        results = []
+        seen_titles = set()
+        for idx in positive_indices:
+            score = float(similarities[idx])
+            if score <= 0:
+                break
+            book = books_df.iloc[idx]
+            title_key = book["Book-Title"].casefold()
+            if title_key in seen_titles:
+                continue
+            seen_titles.add(title_key)
+            results.append({
+                "title": book["Book-Title"],
+                "author": book["Book-Author"],
+                "publisher": book["Publisher"],
+                "score": score,
+            })
+            if len(results) == 3:
+                break
+        return jsonify({"recommendations": results})
+    except Exception:
+        logger.exception("Book recommendation failed")
+        return jsonify({"error": "book recommendation failed"}), 500
 
-    results = []
-    for idx in top_indices:
-        book = books_df.iloc[idx]
-        results.append({
-            "title": book["Book-Title"],
-            "author": book["Book-Author"],
-            "publisher": book["Publisher"],
-            "score": float(similarities[idx])
-        })
 
-    return jsonify({"recommendations": results})
-
-# ---------------------------
-# Existing Routes
-# ---------------------------
-@app.route('/')
+@app.route("/")
 def index():
-    return send_from_directory('.', 'index.html')
+    return send_from_directory(str(BASE_DIR), "index.html")
 
-@app.route('/publishers')
+
+@app.route("/publishers")
 def get_publishers():
-    pub_list = list(scraper.SCRAPERS_MAP.keys())
-    return jsonify({"publishers": pub_list})
+    return jsonify({"publishers": sorted(scraper.SCRAPERS_MAP.keys())})
 
-@app.route('/subscribe', methods=['POST'])
+
+@app.route("/subscribe", methods=["POST"])
 def subscribe():
-    data = request.get_json() or {}
-    email = data.get('email')
-    publishers = data.get('publishers', [])
-    if not email:
-        return jsonify({"error": "email required"}), 400
-    if not publishers:
-        return jsonify({"error": "please select at least one publisher"}), 400
+    data = get_json_payload()
+    if data is None:
+        return jsonify({"error": "a JSON object is required"}), 400
 
-    def worker(e, pubs):
+    email = data.get("email")
+    publishers = data.get("publishers")
+    if not isinstance(email, str) or not email.strip():
+        return jsonify({"error": "email is required"}), 400
+    email = email.strip()
+    if len(email) > 254 or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+        return jsonify({"error": "a valid email address is required"}), 400
+    if not isinstance(publishers, list) or not publishers:
+        return jsonify({"error": "select at least one publisher"}), 400
+    if any(not isinstance(publisher, str) for publisher in publishers):
+        return jsonify({"error": "publishers must be a list of publisher names"}), 400
+
+    allowed_publishers = set(scraper.SCRAPERS_MAP.keys())
+    unknown_publishers = sorted(set(publishers) - allowed_publishers)
+    if unknown_publishers:
+        return jsonify({
+            "error": "unknown publisher(s)",
+            "publishers": unknown_publishers,
+        }), 400
+    publishers = list(dict.fromkeys(publishers))
+
+    def worker(recipient, selected_publishers):
         try:
-            print(f"[Worker] Starting scraping for {e} -> {pubs}")
-            asyncio.run(scraper.run_for(pubs, e))
-            print("[Worker] Worker finished")
-        except Exception as exc:
-            print("[Worker] exception:", exc)
+            logger.info("Scraping started for %s (%s)", recipient, selected_publishers)
+            asyncio.run(scraper.run_for(selected_publishers, recipient))
+            logger.info("Scraping completed for %s", recipient)
+        except Exception:
+            logger.exception("Scraping worker failed for %s", recipient)
 
-    t = threading.Thread(target=worker, args=(email, publishers), daemon=True)
-    t.start()
-    return jsonify({"message": "Subscription accepted. Scraping started."}), 200
+    threading.Thread(
+        target=worker,
+        args=(email, publishers),
+        name="publisher-scraper",
+        daemon=True,
+    ).start()
+    return jsonify({
+        "message": "subscription accepted; scraping started",
+        "publishers": publishers,
+    }), 202
 
-# ---------------------------
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    port = int(os.getenv("PORT", "5000"))
+    debug = os.getenv("FLASK_DEBUG", "0").strip().lower() in {"1", "true", "yes"}
+    app.run(host=os.getenv("HOST", "127.0.0.1"), port=port, debug=debug)
