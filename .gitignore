@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Generated scraper output and downloaded assets
+book_images/
+*.json
+!package.json
+
+# Local data and model artifacts
+Books.csv
+*.csv
+*.pt
+*.bin
+*.safetensors
+.cache/
+huggingface/
+stanza_resources/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

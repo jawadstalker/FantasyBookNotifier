@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 from urllib.parse import urljoin
 import mimetypes
+import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -22,9 +23,9 @@ from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 # ======================
 # Email Settings (replace with real values or override at runtime and you need your app password frm google)
 # ======================
-SENDER_EMAIL = "your email adress"
-APP_PASSWORD = "your app password"
-RECEIVER_EMAIL = "your reciver email"
+SENDER_EMAIL = os.getenv("SENDER_EMAIL", "")
+APP_PASSWORD = os.getenv("APP_PASSWORD", "")
+RECEIVER_EMAIL = os.getenv("RECEIVER_EMAIL", "")
 
 # ======================
 # Image Folder
@@ -427,6 +428,8 @@ async def download_images_with_playwright(context, books):
 # Send Email
 # ======================
 def send_email(all_books):
+    if not SENDER_EMAIL or not APP_PASSWORD or not RECEIVER_EMAIL:
+        raise RuntimeError("Email is not configured; set SENDER_EMAIL, APP_PASSWORD and RECEIVER_EMAIL.")
     msg = MIMEMultipart("related")
     msg["Subject"] = "📚 Latest Books from Publishers"
     msg["From"] = SENDER_EMAIL
