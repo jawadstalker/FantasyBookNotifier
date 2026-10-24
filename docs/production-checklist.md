@@ -30,3 +30,15 @@
 - The recommendation catalogue currently uses only title, author and publisher fields. It is a lexical baseline, not personalized or semantic recommendation.
 - NLP models load during application startup, so the process requires significant memory and may take time to become ready.
 - `/subscribe` currently returns HTTP 202 after starting an in-process daemon thread; it does not guarantee that scraping or email delivery will complete.
+
+
+## Running the queue locally
+
+1. Install Docker Compose and make sure the local `Books.csv` file is present if you want recommendations.
+2. Copy `.env.example` to `.env` and configure email credentials.
+3. Start the services with `docker compose up --build`. The first build downloads large NLP model assets and may take a while.
+4. Open `http://localhost:5000/health`. The web API and Celery worker are separate containers; Redis is the broker/result backend.
+5. Submit `POST /subscribe` with a JSON object containing `email` and a list of valid `publishers`. The response includes `job_id` and `status_url`; poll `GET /jobs/<job_id>` to inspect state.
+6. Use `docker compose logs -f worker` to inspect task progress and errors.
+
+The job status endpoint uses Celery's expiring result backend, so it is not a permanent job-history system. A later phase should persist jobs and subscriptions in a database. Do not expose Redis publicly.
