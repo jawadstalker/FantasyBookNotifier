@@ -51,7 +51,7 @@ still working in other sides of it.
 
     pip install -r requirements.txt
     python -m spacy download en_core_web_sm
-    python -m stanza.download fa
+    python -c "import stanza; stanza.download('fa')"
 
 3.  Ensure `Books.csv` is available in root directory.
 
@@ -194,10 +194,15 @@ scraper\
 | sklearn.feature_extraction.text | TF-IDF vectorizer | [TF-IDF Docs](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html) |
 | sklearn.metrics.pairwise | Cosine similarity | [cosine_similarity Docs](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.pairwise.cosine_similarity.html) |
 
-## Deployment Notes
+## Configuration and Deployment Notes
 
--   Flask runs with `debug=True`
--   Set custom port via environment:
+- Copy `.env.example` to `.env` and set email configuration using environment variables. Never commit real credentials.
+- `FLASK_DEBUG` defaults to disabled. The default host is `127.0.0.1`; set `HOST=0.0.0.0` only when external/container access is required.
+- The API limits request body size and NLP input length. `GET /health` reports whether the recommender catalogue loaded.
+- `Books.csv` is local data and is excluded from Git. Set `BOOKS_CSV_PATH` if the file lives elsewhere.
+- For production, use a WSGI server and move scraping jobs to a durable queue; the current background thread can be lost if the process stops.
+- See [the production checklist](docs/production-checklist.md) for remaining deployment work.
+- Set a custom port via environment:
 
 
     PORT=8000 python app.py
