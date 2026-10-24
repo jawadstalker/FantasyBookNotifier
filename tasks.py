@@ -1,55 +1,35 @@
-"""Background tasks for scraping and email delivery.
-
-Run a worker with:
-    celery -A tasks.celery_app worker --loglevel=INFO
-"""
+"""Background tasks for publisher scraping and email notifications."""
 import asyncio
-import os
-
-from celery import Celery
+import logging
 
 import books_scraper_full as scraper
+from celery_app import celery_app
 
-BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://127.0.0.1:6379/0")
-RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://127.0.0.1:6379/1")
-
-celery_app = Celery(
-    "fantasy_book_notifier",
-    broker=BROKER_URL,
-    backend=RESULT_BACKEND,
-    include=["tasks"],
-)
-celery_app.conf.update(
-    task_track_started=True,
-    task_acks_late=True,
-    worker_prefetch_multiplier=1,
-    result_expires=86400,
-    broker_connection_retry_on_startup=True,
-    task_serializer="json",
-    result_serializer="json",
-    accept_content=["json"],
-)
+logger = logging.getLogger(__name__)
 
 
 @celery_app.task(
     bind=True,
-    name="tasks.scrape_publishers",
-    max_retries=3,
-    default_retry_delay=30,
+    name="tasks.scrape_publishers_task",
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=300,
+    retry_jitter=True,
+    retry_kwargs={"max_retries": 3},
 )
 def scrape_publishers_task(self, publishers, recipient_email):
-    """Scrape selected publishers and send the result email.
+    """Scrape selected publishers and send a notification email.
 
-    A worker crash can cause a task to be delivered again; scraper operations
-    and email delivery should be made idempotent before adding side effects
-    that must never be duplicated.
+    Celery can retry after transient failures. A worker crash after sending an
+    email but before acknowledging the task can lead to duplicate delivery;
+    strict exactly-once delivery needs persistent idempotency records.
     """
-    try:
-        asyncio.run(scraper.run_for(publishers, recipient_email))
-        return {
-            "status": "completed",
-            "publishers": publishers,
-            "recipient": recipient_email,
-        }
-    except Exception as exc:
-        raise self.retry(exc=exc, countdown=min(30 * (2 ** self.request.retries), 300))
+    logger.info(
+        "Scraping job %s started for %s (%s)",
+        self.request.id,
+        recipient_email,
+        publishers,
+    )
+    asyncio.run(scraper.run_for(publishers, recipient_email))
+    logger.info("Scraping job %s completed", self.request.id)
+    return {"message": "scraping and notification completed", "publishers": publishers}
