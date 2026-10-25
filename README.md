@@ -124,7 +124,7 @@ still working in other sides of it.
 
 `GET /jobs/<job_id>`
 
-The `POST /subscribe` response includes a `job_id` and a `status_url`. Poll this URL to see whether the job is pending, running, retrying, successful, or failed. Results expire after 24 hours; this endpoint is not a permanent job history.
+The `POST /subscribe` response includes a `job_id` and a `status_url`. Poll this URL to see whether the job is queued, running, retrying, completed, or failed. Job state and timestamps are read from the SQL database and survive Redis result expiry.
 
 ### 4. Subscribe to Publishers
 
@@ -188,7 +188,7 @@ scraper\
 | Library | Purpose | Documentation |
 |---------|---------|---------------|
 | Flask | Web framework / API | [Flask Docs](https://flask.palletsprojects.com/) |
-| threading | Concurrent scraping | [threading Docs](https://docs.python.org/3/library/threading.html) |
+| Celery + Redis | Durable background task queue | [Celery Docs](https://docs.celeryq.dev/) |
 | asyncio | Asynchronous tasks | [asyncio Docs](https://docs.python.org/3/library/asyncio.html) |
 | os | Environment / path utilities | [os Docs](https://docs.python.org/3/library/os.html) |
 | stanza | Persian NLP & Named Entity Recognition | [Stanza Docs](https://stanfordnlp.github.io/stanza/) |
@@ -196,7 +196,7 @@ scraper\
 | langdetect | Language detection | [langdetect Docs](https://pypi.org/project/langdetect/) |
 | collections.Counter | Count & sort occurrences | [Counter Docs](https://docs.python.org/3/library/collections.html#collections.Counter) |
 | transformers | Text summarization (HuggingFace) | [Transformers Docs](https://huggingface.co/docs/transformers/index) |
-| pandas | Data manipulation / CSV | [pandas Docs](https://pandas.pydata.org/docs/) |
+| pandas | Data manipulation / CSV | [pandas Docs](https://pandas.pydata.org/docs/) |\n| SQLAlchemy | Persistent subscriptions, jobs and email delivery records | [SQLAlchemy Docs](https://docs.sqlalchemy.org/) |
 | sklearn.feature_extraction.text | TF-IDF vectorizer | [TF-IDF Docs](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html) |
 | sklearn.metrics.pairwise | Cosine similarity | [cosine_similarity Docs](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.pairwise.cosine_similarity.html) |
 
@@ -218,7 +218,7 @@ The initial image build downloads NLP models and may take several minutes. The w
 - `FLASK_DEBUG` defaults to disabled. The default host is `127.0.0.1`; set `HOST=0.0.0.0` only when external/container access is required.
 - The API limits request body size and NLP input length. `GET /health` reports whether the recommender catalogue loaded.
 - `Books.csv` is local data and is excluded from Git. Set `BOOKS_CSV_PATH` if the file lives elsewhere.
-- For production, use a WSGI server and move scraping jobs to a durable queue; the current background thread can be lost if the process stops.
+- Job status, subscription settings and email-delivery records are persisted in SQLite by default. Docker Compose stores the database under `./data`; use PostgreSQL for multi-host or high-concurrency deployments.
 - See [the production checklist](docs/production-checklist.md) for remaining deployment work.
 - Set a custom port via environment:
 

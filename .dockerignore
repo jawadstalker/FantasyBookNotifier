@@ -11,3 +11,9 @@ __pycache__
 Books.csv
 book_images
 *.log
+
+# Runtime database and persistent local state
+data/
+*.db
+*.sqlite
+*.sqlite3

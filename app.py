@@ -2,12 +2,14 @@ from flask import Flask, request, jsonify, send_from_directory
 import logging
 import os
 import re
+import uuid
 from pathlib import Path
 
 import books_scraper_full as scraper
 from celery.result import AsyncResult
 from celery_app import celery_app
 from tasks import scrape_publishers_task
+from database import create_job, get_job as get_persisted_job, init_db, update_job, upsert_subscription
 import stanza
 import spacy
 from langdetect import detect, LangDetectException
@@ -29,6 +31,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
+init_db()
 
 
 @app.errorhandler(413)
@@ -265,41 +268,59 @@ def subscribe():
         }), 400
     publishers = list(dict.fromkeys(publishers))
 
+    normalized_email = email.lower()
+    job_id = str(uuid.uuid4())
     try:
-        job = scrape_publishers_task.delay(publishers, email)
+        upsert_subscription(normalized_email, publishers)
+        # Persist before enqueueing so a fast worker cannot finish before the
+        # corresponding job record exists.
+        create_job(job_id, normalized_email, publishers)
+        scrape_publishers_task.apply_async(
+            args=[publishers, normalized_email],
+            task_id=job_id,
+        )
     except Exception:
-        logger.exception("Could not enqueue scraping job")
+        logger.exception("Could not create or enqueue scraping job %s", job_id)
+        try:
+            update_job(job_id, "failed", error="Unable to enqueue scraping job", finished=True)
+        except Exception:
+            logger.exception("Could not persist enqueue failure for job %s", job_id)
         return jsonify({"error": "scraping queue is unavailable"}), 503
 
     return jsonify({
         "message": "scraping job queued",
-        "job_id": job.id,
-        "status_url": f"/jobs/{job.id}",
+        "job_id": job_id,
+        "status_url": f"/jobs/{job_id}",
         "publishers": publishers,
     }), 202
 
 
 @app.route("/jobs/<task_id>", methods=["GET"])
 def get_scraping_job(task_id):
-    # Celery's default task identifiers are UUIDs. Reject malformed IDs early.
     if not re.fullmatch(r"[0-9a-fA-F-]{36}", task_id):
         return jsonify({"error": "invalid job id"}), 400
 
-    job = AsyncResult(task_id, app=celery_app)
-    response = {"job_id": task_id, "state": job.state.lower()}
-    if job.state == "SUCCESS":
-        result = job.result if isinstance(job.result, dict) else {}
-        response["result"] = {
-            "message": result.get("message", "scraping completed"),
-            "publishers": result.get("publishers", []),
-        }
-    elif job.state == "FAILURE":
-        logger.error("Scraping job %s failed: %s", task_id, job.result)
-        response["error"] = "scraping job failed; check worker logs"
-    elif job.state == "RETRY":
-        response["message"] = "job will be retried after a transient failure"
-    elif job.state in {"PENDING", "STARTED", "RECEIVED"}:
-        response["message"] = "job is queued or running"
+    try:
+        persisted = get_persisted_job(task_id)
+    except Exception:
+        logger.exception("Could not read persisted job %s", task_id)
+        return jsonify({"error": "job status is temporarily unavailable"}), 503
+
+    if persisted is None:
+        return jsonify({"error": "job not found"}), 404
+
+    response = {
+        "job_id": persisted["job_id"],
+        "state": persisted["state"],
+        "publishers": persisted["publishers"],
+        "created_at": persisted["created_at"],
+        "started_at": persisted["started_at"],
+        "finished_at": persisted["finished_at"],
+    }
+    if persisted["result"] is not None:
+        response["result"] = persisted["result"]
+    if persisted["error"]:
+        response["error"] = persisted["error"]
     return jsonify(response), 200
 
 

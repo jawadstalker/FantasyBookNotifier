@@ -19,11 +19,21 @@
 3. Install the spaCy English model with `python -m spacy download en_core_web_sm` and download the Stanza Persian model during image/build setup with `python -c "import stanza; stanza.download('fa')"`.
 4. Make sure `Books.csv` exists at `BOOKS_CSV_PATH` or mount it as deployment data. It is intentionally not tracked by Git.
 5. Run behind a production WSGI server (for example, Gunicorn) and a reverse proxy with TLS. Do not use Flask's development server in production.
-6. Move scraping to a durable task queue (Celery/RQ plus Redis) before relying on it for important notifications. The current daemon thread is intentionally a small-deployment bridge; jobs can be lost when the process exits and there is no status endpoint.
-7. Add persistent storage for books, subscriptions and job history before enabling accounts or scheduled notifications.
+6. Scraping is queued through Celery and Redis; start the services with Docker Compose and keep Redis on a private network.
+7. This branch persists subscriptions, scraping job state, and email-delivery records in SQLAlchemy. SQLite is suitable for local/small single-worker deployments; use PostgreSQL for higher concurrency and production workloads.
 8. Add per-IP rate limiting, monitoring, alerting, and a deployment-specific concurrency policy for the large NLP models.
 9. Review each publisher's terms, robots policy, image rights, and acceptable request frequency.
 10. Run tests and a staging smoke test with real model files and a small sample catalogue before release.
+
+## Persistent job history and delivery records
+
+The `subscriptions`, `scraping_jobs`, and `email_deliveries` tables are created automatically at startup. Set `DATABASE_URL` to use PostgreSQL or another SQLAlchemy-supported database. Docker Compose mounts `./data` into both the web and worker containers so the SQLite database survives container recreation.
+
+`GET /jobs/<job_id>` reads job state from the database, including timestamps and stored results. Celery's result backend is still useful for worker internals, but it is no longer the source of truth for the public job status.
+
+Email delivery uses a unique key per scraping job and records pending/sending/sent/failed states. SMTP does not support a transaction shared with the database: if a worker crashes after the mail server accepts an email but before the database records success, a retry can still send a duplicate. The record greatly improves observability and skips known-successful deliveries, but does not guarantee exactly-once delivery.
+
+SQLite is not recommended for multiple web/worker hosts or high write concurrency. Use PostgreSQL and proper migrations before scaling horizontally.
 
 ## Important limitations
 
