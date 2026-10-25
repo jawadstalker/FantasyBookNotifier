@@ -15,4 +15,4 @@ jobs:
         with:
           python-version: "3.11"
       - name: Compile Python files
-        run: python -m compileall -q app.py books_scraper_full.py celery_app.py tasks.py nlp.py character.py persian.py review.py
+        run: python -m compileall -q app.py books_scraper_full.py celery_app.py database.py tasks.py nlp.py character.py persian.py review.py
