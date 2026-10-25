@@ -427,13 +427,14 @@ async def download_images_with_playwright(context, books):
 # ======================
 # Send Email
 # ======================
-def send_email(all_books):
-    if not SENDER_EMAIL or not APP_PASSWORD or not RECEIVER_EMAIL:
+def send_email(all_books, recipient_email=None):
+    recipient_email = (recipient_email or RECEIVER_EMAIL).strip()
+    if not SENDER_EMAIL or not APP_PASSWORD or not recipient_email:
         raise RuntimeError("Email is not configured; set SENDER_EMAIL, APP_PASSWORD and RECEIVER_EMAIL.")
     msg = MIMEMultipart("related")
     msg["Subject"] = "📚 Latest Books from Publishers"
     msg["From"] = SENDER_EMAIL
-    msg["To"] = RECEIVER_EMAIL
+    msg["To"] = recipient_email
 
     alt = MIMEMultipart("alternative")
     msg.attach(alt)
@@ -515,13 +516,10 @@ h1 { text-align:center; color:#2c3e50; }
         else:
             pass
 
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(SENDER_EMAIL, APP_PASSWORD)
-            server.send_message(msg)
-        print("Email sent successfully!")
-    except Exception as e:
-        print("Failed to send email:", e)
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
+        server.login(SENDER_EMAIL, APP_PASSWORD)
+        server.send_message(msg)
+    print("Email sent successfully!")
 
 # ======================
 # Runner wrapper and mapping
@@ -542,9 +540,8 @@ async def run_for(publishers: list, receiver_email: str, per_publisher: int = 3)
     Run scrapers for the requested publishers and send email to receiver_email.
     publishers: list of publisher names which must match keys in SCRAPERS_MAP.
     """
-    global RECEIVER_EMAIL
-    prev_receiver = RECEIVER_EMAIL
-    RECEIVER_EMAIL = receiver_email
+    if not receiver_email or "@" not in receiver_email:
+        raise ValueError("A valid recipient email address is required")
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -569,11 +566,10 @@ async def run_for(publishers: list, receiver_email: str, per_publisher: int = 3)
         print(f"[Runner] Saved all_books.json ({len(all_books)} entries)")
 
         await download_images_with_playwright(context, all_books)
-        send_email(all_books)
+        send_email(all_books, receiver_email)
 
         await browser.close()
 
-    RECEIVER_EMAIL = prev_receiver
 
 # ======================
 # Main: allow running standalone
