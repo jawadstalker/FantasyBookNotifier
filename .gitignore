@@ -24,6 +24,10 @@ book_images/
 !package.json
 
 # Local data and model artifacts
+/data/
+*.db
+*.sqlite
+*.sqlite3
 Books.csv
 *.csv
 *.pt
