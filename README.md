@@ -124,7 +124,7 @@ still working in other sides of it.
 
 `GET /jobs/<job_id>`
 
-The `POST /subscribe` response includes a `job_id` and a `status_url`. Poll this URL to see whether the job is pending, running, retrying, successful, or failed. Job state and timestamps are read from the SQL database and survive Redis result expiry.
+The `POST /subscribe` response includes a `job_id` and a `status_url`. Poll this URL to see whether the job is queued, running, retrying, completed, or failed. Job state and timestamps are read from the SQL database and survive Redis result expiry.
 
 ### 4. Subscribe to Publishers
 
