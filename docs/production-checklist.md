@@ -27,7 +27,7 @@
 
 ## Persistent job history and delivery records
 
-The `subscriptions`, `scraping_jobs`, and `email_deliveries` tables are created automatically at startup. Set `DATABASE_URL` to use PostgreSQL or another SQLAlchemy-supported database. Docker Compose mounts `./data` into both the web and worker containers so the SQLite database survives container recreation.
+The `subscriptions`, `scraping_jobs`, and `email_deliveries` tables are managed by Alembic migrations. Docker Compose runs `alembic upgrade head` before starting the web service. For manual deployments, run the migration command before starting the API or worker. Set `DATABASE_URL` to use PostgreSQL or another SQLAlchemy-supported database. Docker Compose mounts `./data` into both the web and worker containers so the SQLite database survives container recreation.
 
 `GET /jobs/<job_id>` reads job state from the database, including timestamps and stored results. Celery's result backend is still useful for worker internals, but it is no longer the source of truth for the public job status.
 
@@ -39,7 +39,7 @@ SQLite is not recommended for multiple web/worker hosts or high write concurrenc
 
 - The recommendation catalogue currently uses only title, author and publisher fields. It is a lexical baseline, not personalized or semantic recommendation.
 - NLP models load during application startup, so the process requires significant memory and may take time to become ready.
-- `/subscribe` currently returns HTTP 202 after starting an in-process daemon thread; it does not guarantee that scraping or email delivery will complete.
+- `/subscribe` returns HTTP 202 after enqueueing a Celery task. Delivery can still fail after retries; inspect persistent job status and worker logs.
 
 
 ## Running the queue locally
@@ -51,4 +51,13 @@ SQLite is not recommended for multiple web/worker hosts or high write concurrenc
 5. Submit `POST /subscribe` with a JSON object containing `email` and a list of valid `publishers`. The response includes `job_id` and `status_url`; poll `GET /jobs/<job_id>` to inspect state.
 6. Use `docker compose logs -f worker` to inspect task progress and errors.
 
-The job status endpoint uses Celery's expiring result backend, so it is not a permanent job-history system. A later phase should persist jobs and subscriptions in a database. Do not expose Redis publicly.
+The public job status endpoint reads the SQL database, not the expiring Celery result backend. Do not expose Redis publicly.
+
+
+## Database migrations
+
+- The initial migration is `migrations/versions/0001_initial_persistent_records.py`.
+- Review migrations before deploying them; take a database backup first.
+- Apply changes with `alembic upgrade head`; inspect current revision with `alembic current`.
+- If upgrading a database created by an earlier version that already created these tables with SQLAlchemy `create_all`, verify the schema matches the initial migration. If it does, baseline that existing database with `alembic stamp 0001_persistent_records` rather than attempting to create the tables again.
+- Test both migration and rollback paths against a disposable database. Do not run destructive downgrades against production without a reviewed recovery plan.
