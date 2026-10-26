@@ -23,7 +23,7 @@ still working in other sides of it.
 -   English text summarization (BART large CNN)\
 -   Book recommendation system using TF‑IDF\
 -   RESTful API routes\
--   Multi-threaded scraping worker
+-   Celery/Redis background scraping queue
 
 ## Tech Stack
 
