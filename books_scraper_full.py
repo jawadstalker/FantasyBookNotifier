@@ -26,6 +26,12 @@ from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 SENDER_EMAIL = os.getenv("SENDER_EMAIL", "")
 APP_PASSWORD = os.getenv("APP_PASSWORD", "")
 RECEIVER_EMAIL = os.getenv("RECEIVER_EMAIL", "")
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
+SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "true").strip().lower() in {"1", "true", "yes"}
+SMTP_STARTTLS = os.getenv("SMTP_STARTTLS", "false").strip().lower() in {"1", "true", "yes"}
+SMTP_USERNAME = os.getenv("SMTP_USERNAME", SENDER_EMAIL)
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", APP_PASSWORD)
 
 # ======================
 # Image Folder
@@ -429,8 +435,10 @@ async def download_images_with_playwright(context, books):
 # ======================
 def send_email(all_books, recipient_email=None):
     recipient_email = (recipient_email or RECEIVER_EMAIL).strip()
-    if not SENDER_EMAIL or not APP_PASSWORD or not recipient_email:
-        raise RuntimeError("Email is not configured; set SENDER_EMAIL, APP_PASSWORD and RECEIVER_EMAIL.")
+    if not SENDER_EMAIL or not recipient_email:
+        raise RuntimeError("Email is not configured; set SENDER_EMAIL and RECEIVER_EMAIL.")
+    if SMTP_HOST == "smtp.gmail.com" and not SMTP_PASSWORD:
+        raise RuntimeError("Gmail SMTP requires APP_PASSWORD or SMTP_PASSWORD.")
     msg = MIMEMultipart("related")
     msg["Subject"] = "📚 Latest Books from Publishers"
     msg["From"] = SENDER_EMAIL
@@ -516,8 +524,12 @@ h1 { text-align:center; color:#2c3e50; }
         else:
             pass
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
-        server.login(SENDER_EMAIL, APP_PASSWORD)
+    smtp_class = smtplib.SMTP_SSL if SMTP_USE_SSL else smtplib.SMTP
+    with smtp_class(SMTP_HOST, SMTP_PORT, timeout=30) as server:
+        if SMTP_STARTTLS and not SMTP_USE_SSL:
+            server.starttls()
+        if SMTP_PASSWORD:
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
         server.send_message(msg)
     print("Email sent successfully!")
 
