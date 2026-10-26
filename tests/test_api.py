@@ -145,7 +145,7 @@ def test_subscribe_persists_and_enqueues_valid_request(api, monkeypatch):
 
     assert response.status_code == 202
     body = response.get_json()
-    assert body["state"] if "state" in body else body["message"] == "scraping job queued"
+    assert body["message"] == "scraping job queued"
     assert saved["email"] == "reader@example.com"
     assert saved["publishers"] == ["Publisher A"]
     assert saved["job_id"] == body["job_id"]
