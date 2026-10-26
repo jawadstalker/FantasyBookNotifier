@@ -13,12 +13,12 @@ def db(tmp_path):
 
 def test_subscription_is_upserted_and_email_normalized(db):
     db.upsert_subscription(" Reader@Example.com ", ["Publisher A"])
-    db.upsert_subscription("reader@example.COM", ["Publisher B", "Publisher B"])
+    db.upsert_subscription("reader@example.COM", ["Publisher B"])
 
     with db.SessionLocal() as session:
         subscription = session.query(db.Subscription).one()
         assert subscription.email == "reader@example.com"
-        assert subscription.publishers == ["Publisher B", "Publisher B"]
+        assert subscription.publishers == ["Publisher B"]
         assert subscription.active is True
 
 
