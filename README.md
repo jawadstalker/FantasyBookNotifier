@@ -176,13 +176,14 @@ Uses **facebook/bart-large-cnn**\
 
 ------------------------------------------------------------------------
 
-## Threaded Scraper Worker
+## Background Scraper Worker
 
-The `/subscribe` route starts a background thread: - runs asyncio
-scraper\
-- sends user email after scraping
+The `POST /subscribe` route enqueues a Celery task through Redis and returns a `job_id` plus `status_url`. The API stores subscription and job data in SQLAlchemy-managed tables. Poll `GET /jobs/<job_id>` for persisted state, timestamps, result, and error details.
+
+Database schema changes are managed by Alembic migrations. Docker Compose runs `alembic upgrade head` before starting the web API.
 
 ------------------------------------------------------------------------
+
 ## 📦 Libraries & Documentation
 
 | Library | Purpose | Documentation |
@@ -210,7 +211,7 @@ The API uses Celery and Redis for scraping jobs. For a local containerized setup
 4. Run `docker compose up --build`.
 5. Open `http://localhost:5000/health`; follow worker output with `docker compose logs -f worker`.
 
-The initial image build downloads NLP models and may take several minutes. The web API, Redis broker and Celery worker run as separate services. Do not expose Redis directly to the public internet.
+The initial image build downloads NLP models and may take several minutes. The web API runs Alembic migrations before starting; the web API, Redis broker and Celery worker run as separate services. Do not expose Redis directly to the public internet. For manual deployments, run `alembic upgrade head` before starting the API or worker.
 
 ## Configuration and Deployment Notes
 
