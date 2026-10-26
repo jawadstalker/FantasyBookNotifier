@@ -61,3 +61,10 @@ The public job status endpoint reads the SQL database, not the expiring Celery r
 - Apply changes with `alembic upgrade head`; inspect current revision with `alembic current`.
 - If upgrading a database created by an earlier version that already created these tables with SQLAlchemy `create_all`, back it up and verify the existing schema matches the initial migration before upgrading.
 - Test both migration and rollback paths against a disposable database. Do not run destructive downgrades against production without a reviewed recovery plan.
+
+
+## SMTP configuration and integration tests
+
+The default transport is Gmail SMTP over SSL on port 465. The sender can also target a private relay or test sink with `SMTP_HOST`, `SMTP_PORT`, `SMTP_USE_SSL`, and optional `SMTP_STARTTLS`. If `SMTP_PASSWORD` is set, the sender authenticates with `SMTP_USERNAME` (defaults to `SENDER_EMAIL`). Keep credentials in the deployment secret store.
+
+CI runs a Redis-backed Celery round-trip test and sends a sample notification to Mailpit, an isolated local SMTP sink. These tests do not contact Gmail or send to real recipients. The task-level tests simulate scraper/SMTP failures to verify that retry state and error details are persisted.
