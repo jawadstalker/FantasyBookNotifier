@@ -43,7 +43,7 @@ def test_celery_task_round_trip_through_redis():
             loglevel="WARNING",
         ):
             payload = {"job_id": str(uuid.uuid4()), "publishers": ["Publisher A"]}
-            result = echo_payload.apply_async(args=[payload], queue="integration-tests")
+            result = echo_payload.apply_async(args=[payload])
             assert result.get(timeout=20) == {"received": payload, "worker": "ready"}
             assert result.successful()
     finally:
