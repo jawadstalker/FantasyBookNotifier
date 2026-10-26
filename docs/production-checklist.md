@@ -27,7 +27,7 @@
 
 ## Persistent job history and delivery records
 
-The `subscriptions`, `scraping_jobs`, and `email_deliveries` tables are managed by Alembic migrations. Docker Compose runs `alembic upgrade head` before starting the web service. For manual deployments, run the migration command before starting the API or worker. Set `DATABASE_URL` to use PostgreSQL or another SQLAlchemy-supported database. Docker Compose mounts `./data` into both the web and worker containers so the SQLite database survives container recreation.
+The `subscriptions`, `scraping_jobs`, and `email_deliveries` tables are managed by Alembic migrations. Docker Compose runs `alembic upgrade head` before starting the web service. The initial migration checks for existing tables and indexes so databases previously initialized with SQLAlchemy `create_all()` can be adopted without recreating those tables; verify the old schema matches before upgrading. For manual deployments, run the migration command before starting the API or worker. Set `DATABASE_URL` to use PostgreSQL or another SQLAlchemy-supported database. Docker Compose mounts `./data` into both the web and worker containers so the SQLite database survives container recreation.
 
 `GET /jobs/<job_id>` reads job state from the database, including timestamps and stored results. Celery's result backend is still useful for worker internals, but it is no longer the source of truth for the public job status.
 
@@ -59,5 +59,5 @@ The public job status endpoint reads the SQL database, not the expiring Celery r
 - The initial migration is `migrations/versions/0001_initial_persistent_records.py`.
 - Review migrations before deploying them; take a database backup first.
 - Apply changes with `alembic upgrade head`; inspect current revision with `alembic current`.
-- If upgrading a database created by an earlier version that already created these tables with SQLAlchemy `create_all`, verify the schema matches the initial migration. If it does, baseline that existing database with `alembic stamp 0001_persistent_records` rather than attempting to create the tables again.
+- If upgrading a database created by an earlier version that already created these tables with SQLAlchemy `create_all`, back it up and verify the existing schema matches the initial migration before upgrading.
 - Test both migration and rollback paths against a disposable database. Do not run destructive downgrades against production without a reviewed recovery plan.
