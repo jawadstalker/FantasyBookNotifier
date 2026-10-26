@@ -19,9 +19,23 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
+      mailpit:
+        image: axllent/mailpit:v1.27
+        ports:
+          - 1025:1025
+          - 8025:8025
     env:
       CELERY_TEST_BROKER_URL: redis://localhost:6379/14
       CELERY_TEST_RESULT_BACKEND: redis://localhost:6379/15
+      SMTP_HOST: localhost
+      SMTP_PORT: "1025"
+      SMTP_USE_SSL: "false"
+      SMTP_STARTTLS: "false"
+      SMTP_USERNAME: ""
+      SMTP_PASSWORD: ""
+      SENDER_EMAIL: test-sender@example.com
+      RECEIVER_EMAIL: test-recipient@example.com
+      MAILPIT_API_URL: http://localhost:8025
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,7 +44,7 @@ jobs:
       - name: Compile Python files
         run: python -m compileall -q app.py books_scraper_full.py celery_app.py database.py tasks.py nlp.py character.py persian.py review.py migrations tests
       - name: Install test dependencies
-        run: python -m pip install "SQLAlchemy>=2.0,<3.0" "alembic>=1.13,<2.0" "pytest>=8.0,<9.0" "Flask>=3.0,<4.0" "celery[redis]>=5.3,<6.0" "scikit-learn>=1.4,<2.0"
+        run: python -m pip install "SQLAlchemy>=2.0,<3.0" "alembic>=1.13,<2.0" "pytest>=8.0,<9.0" "Flask>=3.0,<4.0" "celery[redis]>=5.3,<6.0" "scikit-learn>=1.4,<2.0" "playwright>=1.42,<2.0"
       - name: Validate database migration
         run: alembic upgrade head
       - name: Run database, API, task and Redis integration tests
