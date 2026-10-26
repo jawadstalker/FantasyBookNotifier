@@ -14,7 +14,7 @@ services:
   web:
     build: .
     restart: unless-stopped
-    command: ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--timeout", "180", "app:app"]
+    command: ["sh", "-c", "alembic upgrade head && exec gunicorn --bind 0.0.0.0:5000 --workers 1 --timeout 180 app:app"]
     env_file:
       - .env
     environment:
