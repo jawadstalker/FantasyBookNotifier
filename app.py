@@ -9,7 +9,7 @@ import books_scraper_full as scraper
 from celery.result import AsyncResult
 from celery_app import celery_app
 from tasks import scrape_publishers_task
-from database import create_job, get_job as get_persisted_job, init_db, update_job, upsert_subscription
+from database import create_job, get_job as get_persisted_job, update_job, upsert_subscription
 import stanza
 import spacy
 from langdetect import detect, LangDetectException
@@ -31,7 +31,6 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
-init_db()
 
 
 @app.errorhandler(413)
