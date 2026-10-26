@@ -2,7 +2,6 @@
 import os
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from pathlib import Path
 
 from sqlalchemy import DateTime, JSON, String, Text, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
@@ -74,6 +73,17 @@ def session_scope():
         raise
     finally:
         session.close()
+
+
+def configure_database(database_url):
+    """Rebind the database engine/session factory (useful for tests and migrations)."""
+    global DATABASE_URL, engine, SessionLocal
+    DATABASE_URL = database_url
+    connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
+    engine.dispose()
+    engine = create_engine(database_url, connect_args=connect_args, pool_pre_ping=True)
+    SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+    return engine
 
 
 def init_db():
