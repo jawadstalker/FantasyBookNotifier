@@ -32,7 +32,7 @@ still working in other sides of it.
 -   **ML:** Scikit-learn (TF‑IDF + Cosine similarity)\
 -   **Data:** Pandas\
 -   **Async:** asyncio\
--   **Threading:** Python threading module
+-   **Queue:** Celery workers with Redis broker
 
 ## Project Structure
 
