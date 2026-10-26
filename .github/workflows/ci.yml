@@ -21,4 +21,4 @@ jobs:
       - name: Validate database migration
         run: alembic upgrade head
       - name: Run database tests
-        run: pytest -q
+        run: PYTHONPATH=. pytest -q
