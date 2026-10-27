@@ -61,3 +61,12 @@ The public job status endpoint reads the SQL database, not the expiring Celery r
 - Apply changes with `alembic upgrade head`; inspect current revision with `alembic current`.
 - If upgrading a database created by an earlier version that already created these tables with SQLAlchemy `create_all`, back it up and verify the existing schema matches the initial migration before upgrading.
 - Test both migration and rollback paths against a disposable database. Do not run destructive downgrades against production without a reviewed recovery plan.
+
+
+## Runtime health and troubleshooting
+
+- `GET /health/live` is a lightweight liveness probe. It reports whether the Flask process is serving requests and includes process uptime; it intentionally does not require Redis or Celery.
+- `GET /health/ready` checks Redis connectivity and waits briefly for a Celery worker ping. It returns HTTP 200 only when both dependencies respond, otherwise HTTP 503 with per-dependency status. Keep this endpoint internal or protect it if exposing dependency topology is undesirable.
+- Docker Compose uses the liveness endpoint for the web container and Celery's `inspect ping` for the worker container. A container healthcheck is diagnostic; it does not automatically restart a process unless an orchestrator is configured to act on health status.
+- Set `LOG_LEVEL=INFO` by default and use `LOG_LEVEL=DEBUG` only during controlled troubleshooting. Logs should be shipped to a centralized destination with retention and alerting configured by the deployment platform.
+- If readiness is degraded, first inspect `docker compose ps` and `docker compose logs redis worker web`. Verify `REDIS_URL`, `CELERY_BROKER_URL`, and `CELERY_RESULT_BACKEND` are consistent across the web and worker containers.
