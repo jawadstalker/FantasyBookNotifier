@@ -203,3 +203,43 @@ def test_job_status_distinguishes_invalid_and_missing_ids(api, monkeypatch):
     monkeypatch.setattr(flask_app, "get_persisted_job", lambda _job_id: None)
     unknown = client.get("/jobs/12345678-1234-1234-1234-123456789abc")
     assert unknown.status_code == 404
+
+
+
+def test_liveness_endpoint_is_independent_of_dependencies(api):
+    _flask_app, client, _task = api
+    response = client.get("/health/live")
+    assert response.status_code == 200
+    assert response.get_json()["status"] == "ok"
+    assert response.get_json()["uptime_seconds"] >= 0
+
+
+def test_readiness_endpoint_reports_dependency_failure(api, monkeypatch):
+    flask_app, client, _task = api
+    import health_checks
+
+    monkeypatch.setattr(health_checks, "_check_redis", lambda: {"status": "ok"})
+    monkeypatch.setattr(
+        health_checks, "_check_celery_worker",
+        lambda: {"status": "error", "reason": "no worker responded"},
+    )
+    response = client.get("/health/ready")
+    assert response.status_code == 503
+    body = response.get_json()
+    assert body["status"] == "degraded"
+    assert body["checks"]["redis"]["status"] == "ok"
+    assert body["checks"]["celery_worker"]["status"] == "error"
+
+
+def test_readiness_endpoint_returns_200_when_dependencies_are_healthy(api, monkeypatch):
+    _flask_app, client, _task = api
+    import health_checks
+
+    monkeypatch.setattr(health_checks, "_check_redis", lambda: {"status": "ok"})
+    monkeypatch.setattr(
+        health_checks, "_check_celery_worker",
+        lambda: {"status": "ok", "worker": "celery@integration"},
+    )
+    response = client.get("/health/ready")
+    assert response.status_code == 200
+    assert response.get_json()["status"] == "ok"
