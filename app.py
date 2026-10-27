@@ -10,6 +10,7 @@ from celery.result import AsyncResult
 from celery_app import celery_app
 from tasks import scrape_publishers_task
 from database import create_job, get_job as get_persisted_job, update_job, upsert_subscription
+from health_checks import health_blueprint
 import stanza
 import spacy
 from langdetect import detect, LangDetectException
@@ -26,6 +27,7 @@ MAX_RECOMMENDATION_KEYWORDS_CHARS = int(os.getenv("MAX_RECOMMENDATION_KEYWORDS_C
 
 app = Flask(__name__, static_folder=str(BASE_DIR), static_url_path="")
 app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
+app.register_blueprint(health_blueprint)
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO").upper(),
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
