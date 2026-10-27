@@ -48,7 +48,7 @@ def test_successful_task_persists_job_and_delivery(task_module, monkeypatch):
     task = task_module.scrape_publishers_task
     task.push_request(id=job_id, retries=0)
     try:
-        result = task._orig_run(task, ["Publisher A"], "reader@example.com")
+        result = task._orig_run(["Publisher A"], "reader@example.com")
     finally:
         task.pop_request()
 
