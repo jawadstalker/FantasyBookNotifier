@@ -45,9 +45,12 @@ def test_successful_task_persists_job_and_delivery(task_module, monkeypatch):
         calls.append((publishers, recipient))
 
     monkeypatch.setattr(task_module, "run_for", fake_run_for)
-    result = task_module.scrape_publishers_task.run(
-        _fake_task_self(job_id), ["Publisher A"], "reader@example.com"
-    )
+    task = task_module.scrape_publishers_task
+    task.push_request(id=job_id, retries=0)
+    try:
+        result = task._orig_run(task, ["Publisher A"], "reader@example.com")
+    finally:
+        task.pop_request()
 
     assert result["message"] == "scraping and notification completed"
     assert calls == [(["Publisher A"], "reader@example.com")]
@@ -67,9 +70,12 @@ def test_failed_task_records_retryable_state(task_module, monkeypatch):
 
     monkeypatch.setattr(task_module, "run_for", fail_run_for)
     with pytest.raises(RuntimeError, match="SMTP test failure"):
-        task_module.scrape_publishers_task.run(
-            _fake_task_self(job_id), ["Publisher A"], "reader@example.com"
-        )
+        task = task_module.scrape_publishers_task
+        task.push_request(id=job_id, retries=0)
+        try:
+            task._orig_run(task, ["Publisher A"], "reader@example.com")
+        finally:
+            task.pop_request()
 
     job = database.get_job(job_id)
     assert job["state"] == "retrying"
